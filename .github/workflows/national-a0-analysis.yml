@@ -1,0 +1,107 @@
+name: Build national A0 analysis
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/national-a0-analysis.yml"
+      - "src/udise/national_a0_analysis.py"
+      - "docs/a0-centered-framing.md"
+      - "requirements.txt"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: national-a0-analysis
+  cancel-in-progress: true
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+      GH_TOKEN: ${{ github.token }}
+      PIPELINE_ISSUE: "6"
+      MPLBACKEND: Agg
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Post analysis start
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### National A0 analysis started
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The run is building the first national Muslim-centred concentration gradients, student-exposure comparisons and graphs. B0-E0 are analytical baselines."
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Run tests
+        run: pytest
+
+      - name: Show runner capacity
+        run: |
+          free -h
+          df -h .
+
+      - name: Build national A0 tables and figures
+        run: python -m udise.national_a0_analysis --output outputs/national_a0
+
+      - name: Upload national A0 results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: national-a0-analysis-2024-25
+          path: outputs/national_a0/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Post successful report
+        if: success()
+        run: |
+          {
+            echo "### National A0 analysis succeeded"
+            echo
+            cat outputs/national_a0/national_a0_report.md
+            echo
+            echo "The workflow artifact contains the national tables and 14 figures."
+            echo
+            echo "Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+          } > /tmp/a0-success.md
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body-file /tmp/a0-success.md
+
+      - name: Post failed report
+        if: failure()
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### National A0 analysis failed
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The failure logs will be inspected and the pipeline will be corrected before rerunning."
+
+      - name: Show final capacity
+        if: always()
+        run: df -h .
