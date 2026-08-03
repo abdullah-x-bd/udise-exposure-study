@@ -5,4 +5,5 @@ charset-normalizer>=3.4.0,<4
 openpyxl>=3.1.5,<4
 pyarrow>=20.0.0,<22
 polars>=1.31.0,<2
+matplotlib>=3.10.0,<4
 pytest>=8.4.0,<9
