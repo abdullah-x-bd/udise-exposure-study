@@ -13,15 +13,24 @@ GitHub stores:
 - state, district and block summary outputs
 - figures, model results and documentation
 
-## Current stage
+Private Hugging Face storage holds:
 
-The first workflow, **Inspect UDISE source data**, downloads each private archive, validates ZIP integrity, identifies the internal tables, detects their format and columns, measures row and school coverage, compares the actual schema with the published schema, and records `item_group` and `item_id` coverage for the enrolment tables.
+- original ZIP archives
+- typed Parquet tables
+- the portable DuckDB analytical database
+- large school-level derived files
 
-The workflow produces only structural metadata and aggregate counts. It does not publish school-level rows.
+## Workflows
 
-## Run
+### Inspect UDISE source data
 
-Open **Actions**, select **Inspect UDISE source data**, and choose **Run workflow**. The same workflow also runs automatically on pull requests from branches inside this repository.
+Checks ZIP integrity, internal file formats, columns, row counts, `pseudocode` coverage and enrolment item combinations. The report contains aggregate structural metadata only.
+
+### Build private UDISE processed data
+
+Downloads one archive at a time, validates every configured type conversion, writes Zstandard-compressed Parquet, checks exact row preservation, creates the DuckDB database, validates joins, and uploads the processed files to the private dataset repository.
+
+The build workflow runs automatically when its processing code is merged into `main`. It can also be run manually from the Actions page.
 
 ## Source tables
 
@@ -32,4 +41,4 @@ Open **Actions**, select **Inspect UDISE source data**, and choose **Run workflo
 - Enrolment 2, age-wise enrolment
 - Teacher, teacher profile
 
-See `docs/data-source.md`, `docs/research-plan.md` and `AGENTS.md` for the data boundary and analytical rules.
+See `docs/data-source.md`, `docs/processing.md`, `docs/research-plan.md` and `AGENTS.md` for the data boundary, processing rules and analytical plan.
