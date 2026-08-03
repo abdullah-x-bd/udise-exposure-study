@@ -1,0 +1,111 @@
+name: Build adjusted A0 models
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Build complete A0 indicator system
+    types:
+      - completed
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: adjusted-a0-models
+  cancel-in-progress: true
+
+jobs:
+  model:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+      GH_TOKEN: ${{ github.token }}
+      PIPELINE_ISSUE: "10"
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Post model start
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### Adjusted A0 models started
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The run is estimating state-fixed-effect and district-fixed-effect A0 models, A0-baseline interaction models, B0 baseline-calibration models and state-specific within-district associations."
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Run tests
+        run: pytest
+
+      - name: Show runner capacity
+        run: |
+          free -h
+          df -h .
+
+      - name: Estimate adjusted A0 models
+        run: >-
+          python -m udise.adjusted_a0_models
+          --output outputs/adjusted_a0
+
+      - name: Upload adjusted model outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adjusted-a0-models-2024-25
+          path: |
+            outputs/adjusted_a0/tables/
+            outputs/adjusted_a0/adjusted_a0_models_report.md
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 30
+
+      - name: Post successful report
+        if: success()
+        run: |
+          {
+            echo "### Adjusted A0 models succeeded"
+            echo
+            cat outputs/adjusted_a0/adjusted_a0_models_report.md
+            echo
+            echo "The artifact contains the principal adjusted A0 models, A0-baseline interaction models, B0 calibration models and state-specific within-district associations."
+            echo
+            echo "Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+          } > /tmp/adjusted-success.md
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body-file /tmp/adjusted-success.md
+
+      - name: Post failed report
+        if: failure()
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### Adjusted A0 models failed
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The failure logs will be inspected and the model pipeline corrected before rerunning."
+
+      - name: Show final capacity
+        if: always()
+        run: df -h .
