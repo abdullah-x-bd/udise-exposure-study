@@ -1,0 +1,28 @@
+profile_1:
+  string_columns:
+    - state
+    - district
+    - block
+    - lgd_urban_local_body_name
+    - lgd_ward_name
+    - lgd_vill_name
+    - lgd_vill_panchayat_name
+    - lgd_block_name
+  double_columns: []
+profile_2:
+  string_columns: []
+  double_columns:
+    - grants_receipt
+    - grants_expenditure
+facility:
+  string_columns: []
+  double_columns: []
+enrolment_1:
+  string_columns: []
+  double_columns: []
+enrolment_2:
+  string_columns: []
+  double_columns: []
+teacher:
+  string_columns: []
+  double_columns: []
