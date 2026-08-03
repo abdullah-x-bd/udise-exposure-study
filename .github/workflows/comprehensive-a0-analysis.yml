@@ -10,6 +10,8 @@ on:
       - "src/udise/indicator_registry.py"
       - "src/udise/comprehensive_a0_analysis.py"
       - "src/udise/comprehensive_a0_staged.py"
+      - "src/udise/comprehensive_a0_lowmem.py"
+      - "src/udise/low_memory_indicator_builder.py"
       - "tests/test_indicator_registry.py"
 
 permissions:
@@ -38,11 +40,11 @@ jobs:
         run: |
           gh issue comment "$PIPELINE_ISSUE" \
             --repo "$GITHUB_REPOSITORY" \
-            --body "### Corrected staged A0 run started
+            --body "### Low-memory A0 checkpoint run started
 
           Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
 
-          Phase 1 builds the school indicator table with a 4 GB DuckDB memory cap and uploads a private Parquet checkpoint. Phase 2 calculates aggregate comparisons and figures in bounded indicator batches."
+          Phase 1 now uses projection-pruned views, one DuckDB thread, a 4 GB memory cap and extra temporary-disk headroom. Phase 2 calculates aggregate comparisons and figures in bounded indicator batches."
 
       - name: Check out repository
         uses: actions/checkout@v4
@@ -59,6 +61,15 @@ jobs:
       - name: Run tests
         run: pytest
 
+      - name: Free runner disk for DuckDB spill files
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sync
+          df -h .
+
       - name: Show runner capacity
         run: |
           free -h
@@ -66,7 +77,7 @@ jobs:
 
       - name: Build and upload private school-indicator checkpoint
         run: >-
-          python -m udise.comprehensive_a0_staged build
+          python -m udise.comprehensive_a0_lowmem build
           --output outputs/comprehensive_a0
 
       - name: Upload foundational aggregate tables
@@ -92,11 +103,11 @@ jobs:
         run: |
           gh issue comment "$PIPELINE_ISSUE" \
             --repo "$GITHUB_REPOSITORY" \
-            --body "### Corrected A0 build phase failed
+            --body "### Low-memory A0 checkpoint phase failed
 
           Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
 
-          The failure is isolated to the school-indicator checkpoint phase. Aggregate calculations did not start."
+          The failure is isolated to the school-indicator checkpoint phase. The watcher will inspect the exact traceback and continue from this phase."
 
       - name: Show final build capacity
         if: always()
