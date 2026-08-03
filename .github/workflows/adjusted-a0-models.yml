@@ -16,31 +16,31 @@ concurrency:
   group: adjusted-a0-models
   cancel-in-progress: true
 
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  GH_TOKEN: ${{ github.token }}
+  PIPELINE_ISSUE: "10"
+  PYTHONUNBUFFERED: "1"
+
 jobs:
-  model:
+  test:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 330
-
-    env:
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
-      GH_TOKEN: ${{ github.token }}
-      PIPELINE_ISSUE: "10"
-      PYTHONUNBUFFERED: "1"
+    timeout-minutes: 20
 
     steps:
-      - name: Post model start
+      - name: Post adjusted-model start
         run: |
           gh issue comment "$PIPELINE_ISSUE" \
             --repo "$GITHUB_REPOSITORY" \
-            --body "### Adjusted A0 models started
+            --body "### Split adjusted A0 model system started
 
           Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
 
-          The run is estimating state-fixed-effect and district-fixed-effect A0 models, A0-baseline interaction models, B0 baseline-calibration models and state-specific within-district associations."
+          Principal outcomes, A0-baseline interactions, baseline calibration and state-specific models are running as bounded tasks."
 
       - name: Check out repository
         uses: actions/checkout@v4
@@ -57,55 +57,210 @@ jobs:
       - name: Run tests
         run: pytest
 
-      - name: Show runner capacity
-        run: |
-          free -h
-          df -h .
+  principal:
+    needs: test
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        outcome:
+          - ends_before_class10
+          - ends_before_class12
+          - no_functional_water_source
+          - no_functional_electricity
+          - no_internet
+          - str_above_30
+          - no_female_teacher
+          - grant_per_student
+          - access_deprivation_index
+          - teacher_capacity_deprivation_index
+          - institutional_neglect_index
+          - overall_multidimensional_deprivation_index
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
 
-      - name: Estimate adjusted A0 models
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Estimate principal adjusted model
         run: >-
-          python -m udise.adjusted_a0_models
-          --output outputs/adjusted_a0
+          python -m udise.run_adjusted_model_task
+          --task principal
+          --outcome "${{ matrix.outcome }}"
+          --output "outputs/adjusted_tasks/principal_${{ matrix.outcome }}"
 
-      - name: Upload adjusted model outputs
-        if: always()
+      - name: Upload principal model
         uses: actions/upload-artifact@v4
         with:
-          name: adjusted-a0-models-2024-25
-          path: |
-            outputs/adjusted_a0/tables/
-            outputs/adjusted_a0/adjusted_a0_models_report.md
-          if-no-files-found: warn
-          compression-level: 6
+          name: adjusted-principal-${{ matrix.outcome }}
+          path: outputs/adjusted_tasks/principal_${{ matrix.outcome }}/
+          if-no-files-found: error
           retention-days: 30
 
-      - name: Post successful report
-        if: success()
-        run: |
-          {
-            echo "### Adjusted A0 models succeeded"
-            echo
-            cat outputs/adjusted_a0/adjusted_a0_models_report.md
-            echo
-            echo "The artifact contains the principal adjusted A0 models, A0-baseline interaction models, B0 calibration models and state-specific within-district associations."
-            echo
-            echo "Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
-          } > /tmp/adjusted-success.md
-          gh issue comment "$PIPELINE_ISSUE" \
-            --repo "$GITHUB_REPOSITORY" \
-            --body-file /tmp/adjusted-success.md
+  interaction:
+    needs: test
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        baseline:
+          - B0
+          - C0
+          - D0
+          - E0
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
 
-      - name: Post failed report
-        if: failure()
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Estimate A0-baseline interaction models
+        run: >-
+          python -m udise.run_adjusted_model_task
+          --task interaction
+          --baseline "${{ matrix.baseline }}"
+          --output "outputs/adjusted_tasks/interaction_${{ matrix.baseline }}"
+
+      - name: Upload interaction models
+        uses: actions/upload-artifact@v4
+        with:
+          name: adjusted-interaction-${{ matrix.baseline }}
+          path: outputs/adjusted_tasks/interaction_${{ matrix.baseline }}/
+          if-no-files-found: error
+          retention-days: 30
+
+  calibration:
+    needs: test
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        baseline:
+          - C0
+          - D0
+          - E0
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Estimate B0 baseline-calibration models
+        run: >-
+          python -m udise.run_adjusted_model_task
+          --task calibration
+          --baseline "${{ matrix.baseline }}"
+          --output "outputs/adjusted_tasks/calibration_${{ matrix.baseline }}"
+
+      - name: Upload calibration models
+        uses: actions/upload-artifact@v4
+        with:
+          name: adjusted-calibration-${{ matrix.baseline }}
+          path: outputs/adjusted_tasks/calibration_${{ matrix.baseline }}/
+          if-no-files-found: error
+          retention-days: 30
+
+  state_specific:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Estimate state-specific within-district associations
+        run: >-
+          python -m udise.run_adjusted_model_task
+          --task state_specific
+          --output outputs/adjusted_tasks/state_specific
+
+      - name: Upload state-specific models
+        uses: actions/upload-artifact@v4
+        with:
+          name: adjusted-state-specific-a0-models
+          path: outputs/adjusted_tasks/state_specific/
+          if-no-files-found: error
+          retention-days: 30
+
+  complete:
+    if: always()
+    needs:
+      - test
+      - principal
+      - interaction
+      - calibration
+      - state_specific
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Report adjusted-model status
         run: |
+          TEST_RESULT='${{ needs.test.result }}'
+          PRINCIPAL_RESULT='${{ needs.principal.result }}'
+          INTERACTION_RESULT='${{ needs.interaction.result }}'
+          CALIBRATION_RESULT='${{ needs.calibration.result }}'
+          STATE_RESULT='${{ needs.state_specific.result }}'
+
+          if [[ "$TEST_RESULT" == "success" && "$PRINCIPAL_RESULT" == "success" && "$INTERACTION_RESULT" == "success" && "$CALIBRATION_RESULT" == "success" && "$STATE_RESULT" == "success" ]]; then
+            gh issue comment "$PIPELINE_ISSUE" \
+              --repo "$GITHUB_REPOSITORY" \
+              --body "### Adjusted A0 model system succeeded
+
+            Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+            All principal state- and district-fixed-effect models, A0-baseline interaction models, B0 calibration models and state-specific within-district associations have completed."
+            exit 0
+          fi
+
           gh issue comment "$PIPELINE_ISSUE" \
             --repo "$GITHUB_REPOSITORY" \
-            --body "### Adjusted A0 models failed
+            --body "### Adjusted A0 model system has failed components
 
           Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
 
-          The failure logs will be inspected and the model pipeline corrected before rerunning."
-
-      - name: Show final capacity
-        if: always()
-        run: df -h .
+          test=$TEST_RESULT
+          principal=$PRINCIPAL_RESULT
+          interaction=$INTERACTION_RESULT
+          calibration=$CALIBRATION_RESULT
+          state_specific=$STATE_RESULT"
+          exit 1
