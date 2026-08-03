@@ -19,25 +19,27 @@ import yaml
 from charset_normalizer import from_bytes
 from huggingface_hub import HfApi, hf_hub_download
 
-
-SUPPORTED_TEXT = {".csv", ".tsv", ".txt"}
-SUPPORTED_TABLES = SUPPORTED_TEXT | {".parquet", ".xlsx", ".xls"}
+TEXT_EXTENSIONS = {".csv", ".tsv", ".txt"}
+TABLE_EXTENSIONS = TEXT_EXTENSIONS | {".parquet", ".xlsx", ".xls"}
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as handle:
-        data = yaml.safe_load(handle)
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain a YAML mapping")
     return data
 
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+def normalize(value: str) -> str:
+    return value.replace("\ufeff", "").strip().lower()
+
+
+def sql_string(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def sql_identifier(value: str) -> str:
+    return '"' + value.replace('"', '""') + '"'
 
 
 def human_bytes(value: int | None) -> str:
@@ -51,19 +53,15 @@ def human_bytes(value: int | None) -> str:
     return f"{size:.1f} TiB"
 
 
-def normalized_name(value: str) -> str:
-    return value.replace("\ufeff", "").strip().lower()
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
-def sql_literal(value: str) -> str:
-    return "'" + value.replace("'", "''") + "'"
-
-
-def quote_identifier(value: str) -> str:
-    return '"' + value.replace('"', '""') + '"'
-
-
-def detect_text_format(path: Path) -> tuple[str, str]:
+def detect_text(path: Path) -> tuple[str, str]:
     sample = path.read_bytes()[:256_000]
     match = from_bytes(sample).best()
     encoding = match.encoding if match and match.encoding else "utf-8"
@@ -73,11 +71,9 @@ def detect_text_format(path: Path) -> tuple[str, str]:
         encoding = "utf-8"
         text = sample.decode("utf-8", errors="replace")
 
-    suffix = path.suffix.lower()
-    delimiter = "\t" if suffix == ".tsv" else ","
+    delimiter = "\t" if path.suffix.lower() == ".tsv" else ","
     try:
-        dialect = csv.Sniffer().sniff(text, delimiters=",\t;|")
-        delimiter = dialect.delimiter
+        delimiter = csv.Sniffer().sniff(text, delimiters=",\t;|").delimiter
     except csv.Error:
         pass
     return encoding, delimiter
@@ -87,17 +83,16 @@ def duckdb_encoding(encoding: str) -> str | None:
     value = encoding.lower().replace("_", "-")
     if value in {"ascii", "utf-8", "utf8", "utf-8-sig"}:
         return None
-    aliases = {
+    return {
         "cp1252": "windows-1252",
         "windows-1252": "windows-1252",
         "iso-8859-1": "latin-1",
         "latin-1": "latin-1",
         "latin1": "latin-1",
-    }
-    return aliases.get(value)
+    }.get(value)
 
 
-def csv_source_sql(
+def csv_source(
     path: Path,
     delimiter: str,
     encoding: str,
@@ -107,116 +102,109 @@ def csv_source_sql(
     options = [
         "header=true",
         "all_varchar=true",
-        f"sample_size={int(sample_size)}",
+        f"sample_size={sample_size}",
         f"ignore_errors={'true' if ignore_errors else 'false'}",
         "null_padding=true",
-        f"delim={sql_literal(delimiter)}",
+        f"delim={sql_string(delimiter)}",
     ]
-    encoded = duckdb_encoding(encoding)
-    if encoded:
-        options.append(f"encoding={sql_literal(encoded)}")
-    return f"read_csv_auto({sql_literal(str(path))}, {', '.join(options)})"
+    mapped_encoding = duckdb_encoding(encoding)
+    if mapped_encoding:
+        options.append(f"encoding={sql_string(mapped_encoding)}")
+    return f"read_csv_auto({sql_string(str(path))}, {', '.join(options)})"
 
 
-def parquet_source_sql(path: Path) -> str:
-    return f"read_parquet({sql_literal(str(path))})"
-
-
-def column_lookup(columns: list[str]) -> dict[str, str]:
-    return {normalized_name(column): column for column in columns}
+def schema_comparison(
+    columns: list[str],
+    expected_schema: dict[str, Any],
+) -> dict[str, Any]:
+    actual = {normalize(column) for column in columns}
+    expected = {normalize(item) for item in expected_schema.get("expected", [])}
+    required = {normalize(item) for item in expected_schema.get("required", [])}
+    return {
+        "columns": columns,
+        "column_count": len(columns),
+        "missing_expected_columns": sorted(expected - actual),
+        "unexpected_columns": sorted(actual - expected),
+        "missing_required_columns": sorted(required - actual),
+    }
 
 
 def inspect_relation(
     connection: duckdb.DuckDBPyConnection,
-    source_sql: str,
-    table_key: str,
+    source: str,
     expected_schema: dict[str, Any],
 ) -> dict[str, Any]:
-    description = connection.execute(f"SELECT * FROM {source_sql} LIMIT 0").description
+    description = connection.execute(f"SELECT * FROM {source} LIMIT 0").description
     columns = [item[0] for item in description]
-    lookup = column_lookup(columns)
-
-    expected = [normalized_name(item) for item in expected_schema.get("expected", [])]
-    required = [normalized_name(item) for item in expected_schema.get("required", [])]
-    actual = set(lookup)
-
-    result: dict[str, Any] = {
-        "columns": columns,
-        "column_count": len(columns),
-        "missing_expected_columns": sorted(set(expected) - actual),
-        "unexpected_columns": sorted(actual - set(expected)),
-        "missing_required_columns": sorted(set(required) - actual),
-    }
+    lookup = {normalize(column): column for column in columns}
+    result = schema_comparison(columns, expected_schema)
 
     pseudocode = lookup.get("pseudocode")
-    if pseudocode:
-        identifier = quote_identifier(pseudocode)
-        metrics = connection.execute(
-            f"""
-            WITH source AS (
-                SELECT * FROM {source_sql}
-            ),
-            grouped AS (
-                SELECT {identifier} AS pseudocode, COUNT(*) AS records
-                FROM source
-                WHERE {identifier} IS NOT NULL
-                  AND TRIM(CAST({identifier} AS VARCHAR)) <> ''
-                GROUP BY {identifier}
-            )
-            SELECT
-                (SELECT COUNT(*) FROM source) AS row_count,
-                COUNT(*) AS unique_pseudocode,
-                COALESCE(SUM(records), 0) AS rows_with_pseudocode,
-                COALESCE(SUM(CASE WHEN records > 1 THEN 1 ELSE 0 END), 0)
-                    AS pseudocodes_with_multiple_rows,
-                MIN(records) AS minimum_rows_per_school,
-                MEDIAN(records) AS median_rows_per_school,
-                MAX(records) AS maximum_rows_per_school,
-                AVG(records) AS average_rows_per_school
-            FROM grouped
-            """
-        ).fetchone()
-        keys = [
-            "row_count",
-            "unique_pseudocode",
-            "rows_with_pseudocode",
-            "pseudocodes_with_multiple_rows",
-            "minimum_rows_per_school",
-            "median_rows_per_school",
-            "maximum_rows_per_school",
-            "average_rows_per_school",
-        ]
-        result["identifier_metrics"] = dict(zip(keys, metrics, strict=True))
-        result["identifier_metrics"]["missing_pseudocode_rows"] = (
-            result["identifier_metrics"]["row_count"]
-            - result["identifier_metrics"]["rows_with_pseudocode"]
-        )
-    else:
-        row_count = connection.execute(
-            f"SELECT COUNT(*) FROM {source_sql}"
-        ).fetchone()[0]
+    if not pseudocode:
         result["identifier_metrics"] = {
-            "row_count": row_count,
+            "row_count": connection.execute(
+                f"SELECT COUNT(*) FROM {source}"
+            ).fetchone()[0],
             "pseudocode_column_present": False,
         }
+        return result
+
+    identifier = sql_identifier(pseudocode)
+    metrics = connection.execute(
+        f"""
+        WITH records AS (
+            SELECT * FROM {source}
+        ),
+        schools AS (
+            SELECT {identifier} AS pseudocode, COUNT(*) AS records
+            FROM records
+            WHERE {identifier} IS NOT NULL
+              AND TRIM(CAST({identifier} AS VARCHAR)) <> ''
+            GROUP BY {identifier}
+        )
+        SELECT
+            (SELECT COUNT(*) FROM records),
+            COUNT(*),
+            COALESCE(SUM(records), 0),
+            COALESCE(SUM(CASE WHEN records > 1 THEN 1 ELSE 0 END), 0),
+            MIN(records),
+            MEDIAN(records),
+            MAX(records),
+            AVG(records)
+        FROM schools
+        """
+    ).fetchone()
+    keys = [
+        "row_count",
+        "unique_pseudocode",
+        "rows_with_pseudocode",
+        "pseudocodes_with_multiple_rows",
+        "minimum_rows_per_school",
+        "median_rows_per_school",
+        "maximum_rows_per_school",
+        "average_rows_per_school",
+    ]
+    result["identifier_metrics"] = dict(zip(keys, metrics, strict=True))
+    result["identifier_metrics"]["missing_pseudocode_rows"] = (
+        result["identifier_metrics"]["row_count"]
+        - result["identifier_metrics"]["rows_with_pseudocode"]
+    )
 
     item_group = lookup.get("item_group")
     item_id = lookup.get("item_id")
-    if item_group and item_id and pseudocode:
-        item_group_q = quote_identifier(item_group)
-        item_id_q = quote_identifier(item_id)
-        combinations = connection.execute(
+    if item_group and item_id:
+        group_q = sql_identifier(item_group)
+        item_q = sql_identifier(item_id)
+        rows = connection.execute(
             f"""
             SELECT
-                CAST({item_group_q} AS VARCHAR) AS item_group,
-                CAST({item_id_q} AS VARCHAR) AS item_id,
+                CAST({group_q} AS VARCHAR) AS item_group,
+                CAST({item_q} AS VARCHAR) AS item_id,
                 COUNT(*) AS row_count,
-                COUNT(DISTINCT {quote_identifier(pseudocode)})
-                    AS school_count
-            FROM {source_sql}
+                COUNT(DISTINCT {identifier}) AS school_count
+            FROM {source}
             GROUP BY 1, 2
-            ORDER BY TRY_CAST(item_group AS INTEGER), TRY_CAST(item_id AS INTEGER),
-                     item_group, item_id
+            ORDER BY 1, 2
             """
         ).fetchall()
         result["item_combinations"] = [
@@ -226,74 +214,50 @@ def inspect_relation(
                 "row_count": row[2],
                 "school_count": row[3],
             }
-            for row in combinations
+            for row in rows
         ]
-
     return result
 
 
 def inspect_delimited(
     path: Path,
-    table_key: str,
     expected_schema: dict[str, Any],
     sample_size: int,
 ) -> dict[str, Any]:
-    encoding, delimiter = detect_text_format(path)
+    encoding, delimiter = detect_text(path)
     result: dict[str, Any] = {
         "format": "delimited_text",
         "detected_encoding": encoding,
         "detected_delimiter": repr(delimiter),
         "strict_parse_ok": True,
     }
-
     connection = duckdb.connect()
     try:
-        source = csv_source_sql(
-            path=path,
-            delimiter=delimiter,
-            encoding=encoding,
-            sample_size=sample_size,
-            ignore_errors=False,
-        )
+        strict = csv_source(path, delimiter, encoding, sample_size, False)
         try:
-            result.update(
-                inspect_relation(connection, source, table_key, expected_schema)
-            )
-        except Exception as strict_error:
+            result.update(inspect_relation(connection, strict, expected_schema))
+        except Exception as error:
             result["strict_parse_ok"] = False
-            result["strict_parse_error"] = str(strict_error)
-            fallback = csv_source_sql(
-                path=path,
-                delimiter=delimiter,
-                encoding=encoding,
-                sample_size=sample_size,
-                ignore_errors=True,
-            )
-            result.update(
-                inspect_relation(connection, fallback, table_key, expected_schema)
-            )
+            result["strict_parse_error"] = str(error)
+            fallback = csv_source(path, delimiter, encoding, sample_size, True)
+            result.update(inspect_relation(connection, fallback, expected_schema))
             result["fallback_used"] = "ignore_errors=true"
     finally:
         connection.close()
     return result
 
 
-def inspect_parquet(
-    path: Path,
-    table_key: str,
-    expected_schema: dict[str, Any],
-) -> dict[str, Any]:
+def inspect_parquet(path: Path, expected_schema: dict[str, Any]) -> dict[str, Any]:
     connection = duckdb.connect()
     try:
-        result = {
+        result: dict[str, Any] = {
             "format": "parquet",
             "strict_parse_ok": True,
         }
         result.update(
             inspect_relation(
                 connection,
-                parquet_source_sql(path),
-                table_key,
+                f"read_parquet({sql_string(str(path))})",
                 expected_schema,
             )
         )
@@ -307,42 +271,26 @@ def inspect_excel(path: Path, expected_schema: dict[str, Any]) -> dict[str, Any]
         return {
             "format": "xls",
             "strict_parse_ok": False,
-            "inspection_error": "Legacy XLS requires a separate conversion step.",
+            "inspection_error": "Legacy XLS requires conversion before inspection.",
         }
 
     from openpyxl import load_workbook
 
     workbook = load_workbook(path, read_only=True, data_only=True)
     sheets: list[dict[str, Any]] = []
-    expected = {
-        normalized_name(item) for item in expected_schema.get("expected", [])
-    }
-    required = {
-        normalized_name(item) for item in expected_schema.get("required", [])
-    }
-
     for worksheet in workbook.worksheets:
-        rows = worksheet.iter_rows(values_only=True)
-        header = next(rows, ())
+        header = next(worksheet.iter_rows(values_only=True), ())
         columns = [str(value).strip() if value is not None else "" for value in header]
-        actual = {normalized_name(value) for value in columns if value}
-        sheets.append(
+        sheet = schema_comparison([column for column in columns if column], expected_schema)
+        sheet.update(
             {
                 "sheet": worksheet.title,
                 "reported_row_count": worksheet.max_row,
-                "column_count": len(columns),
-                "columns": columns,
-                "missing_expected_columns": sorted(expected - actual),
-                "unexpected_columns": sorted(actual - expected),
-                "missing_required_columns": sorted(required - actual),
             }
         )
+        sheets.append(sheet)
     workbook.close()
-    return {
-        "format": "xlsx",
-        "strict_parse_ok": True,
-        "sheets": sheets,
-    }
+    return {"format": "xlsx", "strict_parse_ok": True, "sheets": sheets}
 
 
 def extract_member(
@@ -350,9 +298,8 @@ def extract_member(
     member: zipfile.ZipInfo,
     destination: Path,
 ) -> Path:
-    destination.mkdir(parents=True, exist_ok=True)
     target = destination / Path(member.filename).name
-    with archive.open(member, "r") as source, target.open("wb") as output:
+    with archive.open(member) as source, target.open("wb") as output:
         shutil.copyfileobj(source, output, length=8 * 1024 * 1024)
     return target
 
@@ -368,7 +315,7 @@ def inspect_archive(
         "table": table_key,
         "remote_filename": remote_filename,
         "compressed_file_bytes": archive_path.stat().st_size,
-        "sha256": sha256_file(archive_path),
+        "sha256": sha256(archive_path),
         "archive_ok": True,
         "members": [],
         "data_members": [],
@@ -381,61 +328,55 @@ def inspect_archive(
             if bad_member:
                 result["first_bad_member"] = bad_member
 
-            members = [item for item in archive.infolist() if not item.is_dir()]
+            members = [member for member in archive.infolist() if not member.is_dir()]
             result["members"] = [
                 {
-                    "name": item.filename,
-                    "compressed_bytes": item.compress_size,
-                    "uncompressed_bytes": item.file_size,
-                    "crc": item.CRC,
+                    "name": member.filename,
+                    "compressed_bytes": member.compress_size,
+                    "uncompressed_bytes": member.file_size,
+                    "crc": member.CRC,
                 }
-                for item in members
+                for member in members
             ]
-
             inspectable = [
-                item
-                for item in members
-                if Path(item.filename).suffix.lower() in SUPPORTED_TABLES
+                member
+                for member in members
+                if Path(member.filename).suffix.lower() in TABLE_EXTENSIONS
             ]
             result["primary_member"] = (
-                max(inspectable, key=lambda item: item.file_size).filename
+                max(inspectable, key=lambda member: member.file_size).filename
                 if inspectable
                 else None
             )
 
-            with tempfile.TemporaryDirectory(prefix=f"udise_{table_key}_") as temporary:
-                temporary_path = Path(temporary)
+            with tempfile.TemporaryDirectory(prefix=f"udise_{table_key}_") as temp:
+                temp_path = Path(temp)
                 for member in inspectable:
-                    extracted = extract_member(archive, member, temporary_path)
-                    member_result: dict[str, Any] = {
+                    extracted = extract_member(archive, member, temp_path)
+                    inspected: dict[str, Any] = {
                         "name": member.filename,
                         "uncompressed_bytes": member.file_size,
                     }
                     try:
                         suffix = extracted.suffix.lower()
-                        if suffix in SUPPORTED_TEXT:
-                            member_result.update(
+                        if suffix in TEXT_EXTENSIONS:
+                            inspected.update(
                                 inspect_delimited(
                                     extracted,
-                                    table_key,
                                     expected_schema,
                                     sample_size,
                                 )
                             )
                         elif suffix == ".parquet":
-                            member_result.update(
-                                inspect_parquet(
-                                    extracted,
-                                    table_key,
-                                    expected_schema,
-                                )
+                            inspected.update(
+                                inspect_parquet(extracted, expected_schema)
                             )
-                        elif suffix in {".xlsx", ".xls"}:
-                            member_result.update(
+                        else:
+                            inspected.update(
                                 inspect_excel(extracted, expected_schema)
                             )
                     except Exception as error:
-                        member_result.update(
+                        inspected.update(
                             {
                                 "strict_parse_ok": False,
                                 "inspection_error": str(error),
@@ -443,7 +384,7 @@ def inspect_archive(
                         )
                     finally:
                         extracted.unlink(missing_ok=True)
-                    result["data_members"].append(member_result)
+                    result["data_members"].append(inspected)
 
             if not inspectable:
                 result["archive_ok"] = False
@@ -451,7 +392,6 @@ def inspect_archive(
     except zipfile.BadZipFile as error:
         result["archive_ok"] = False
         result["archive_error"] = str(error)
-
     return result
 
 
@@ -468,12 +408,12 @@ def resolve_archives(
             for filename in repo_files
             if fnmatch.fnmatch(Path(filename).name, pattern)
         ]
-        if len(matches) != 1:
-            errors.append(
-                f"{table_key}: pattern {pattern!r} matched {len(matches)} files: {matches}"
-            )
-        else:
+        if len(matches) == 1:
             resolved[table_key] = matches[0]
+        else:
+            errors.append(
+                f"{table_key}: {pattern!r} matched {len(matches)} files: {matches}"
+            )
     if errors:
         raise RuntimeError("\n".join(errors))
     return resolved
@@ -492,12 +432,11 @@ def build_markdown(manifest: dict[str, Any]) -> str:
         "| Table | Archive | Compressed | ZIP valid | Primary data member |",
         "|---|---|---:|:---:|---|",
     ]
-
     for archive in manifest["archives"]:
         lines.append(
-            "| {table} | `{filename}` | {size} | {valid} | `{primary}` |".format(
+            "| {table} | `{file}` | {size} | {valid} | `{primary}` |".format(
                 table=archive["table"],
-                filename=archive["remote_filename"],
+                file=archive["remote_filename"],
                 size=human_bytes(archive.get("compressed_file_bytes")),
                 valid="yes" if archive.get("zip_integrity_ok") else "no",
                 primary=archive.get("primary_member") or "none",
@@ -509,17 +448,13 @@ def build_markdown(manifest: dict[str, Any]) -> str:
         if archive.get("archive_error"):
             lines.append(f"Archive error: `{archive['archive_error']}`")
             continue
-
+        lines.append(f"Archive SHA-256: `{archive['sha256']}`")
         lines.append(
-            f"Archive SHA-256: `{archive.get('sha256', 'n/a')}`"
-        )
-        lines.append("")
-        lines.append(
-            f"Archive members: {len(archive.get('members', []))}; "
-            f"inspectable data members: {len(archive.get('data_members', []))}."
+            f"Archive members: {len(archive['members'])}; "
+            f"inspectable data members: {len(archive['data_members'])}."
         )
 
-        for member in archive.get("data_members", []):
+        for member in archive["data_members"]:
             lines.extend(["", f"### `{member['name']}`", ""])
             lines.append(
                 f"Format: `{member.get('format', 'unknown')}`; "
@@ -528,51 +463,40 @@ def build_markdown(manifest: dict[str, Any]) -> str:
             if member.get("detected_encoding"):
                 lines.append(
                     f"Detected encoding: `{member['detected_encoding']}`; "
-                    f"delimiter: `{member.get('detected_delimiter')}`."
+                    f"delimiter: `{member['detected_delimiter']}`."
                 )
             if not member.get("strict_parse_ok", False):
-                lines.append(
-                    f"Strict parsing did not succeed: "
-                    f"`{member.get('strict_parse_error') or member.get('inspection_error')}`"
+                message = member.get("strict_parse_error") or member.get(
+                    "inspection_error"
                 )
+                lines.append(f"Strict parsing did not succeed: `{message}`")
 
-            metrics = member.get("identifier_metrics")
-            if metrics:
+            if member.get("identifier_metrics"):
                 lines.extend(["", "| Metric | Value |", "|---|---:|"])
-                for key, value in metrics.items():
+                for key, value in member["identifier_metrics"].items():
                     lines.append(f"| {key} | {value} |")
 
-            columns = member.get("columns")
-            if columns:
+            if member.get("columns"):
                 lines.extend(
                     [
                         "",
-                        f"Columns ({len(columns)}):",
+                        f"Columns ({len(member['columns'])}):",
                         "",
                         "```text",
-                        "\n".join(columns),
+                        "\n".join(member["columns"]),
                         "```",
                     ]
                 )
 
-            missing_required = member.get("missing_required_columns", [])
-            missing_expected = member.get("missing_expected_columns", [])
-            unexpected = member.get("unexpected_columns", [])
-            if missing_required:
-                lines.append(
-                    f"Missing required columns: `{', '.join(missing_required)}`"
-                )
-            if missing_expected:
-                lines.append(
-                    f"Missing expected columns: `{', '.join(missing_expected)}`"
-                )
-            if unexpected:
-                lines.append(
-                    f"Unexpected columns: `{', '.join(unexpected)}`"
-                )
+            for key, label in (
+                ("missing_required_columns", "Missing required columns"),
+                ("missing_expected_columns", "Missing expected columns"),
+                ("unexpected_columns", "Unexpected columns"),
+            ):
+                if member.get(key):
+                    lines.append(f"{label}: `{', '.join(member[key])}`")
 
-            combinations = member.get("item_combinations", [])
-            if combinations:
+            if member.get("item_combinations"):
                 lines.extend(
                     [
                         "",
@@ -580,7 +504,7 @@ def build_markdown(manifest: dict[str, Any]) -> str:
                         "|---:|---:|---:|---:|",
                     ]
                 )
-                for item in combinations:
+                for item in member["item_combinations"]:
                     lines.append(
                         f"| {item['item_group']} | {item['item_id']} | "
                         f"{item['row_count']} | {item['school_count']} |"
@@ -599,13 +523,9 @@ def build_markdown(manifest: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def parse_arguments() -> argparse.Namespace:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config",
-        type=Path,
-        default=Path("config/dataset.yml"),
-    )
+    parser.add_argument("--config", type=Path, default=Path("config/dataset.yml"))
     parser.add_argument(
         "--schema",
         type=Path,
@@ -615,9 +535,9 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def main() -> int:
-    args = parse_arguments()
+    args = parse_args()
     config = load_yaml(args.config)
-    expected_schemas = load_yaml(args.schema)
+    schemas = load_yaml(args.schema)
 
     repo_id = os.getenv(config["source"]["repo_env"], "").strip()
     token = os.getenv(config["source"]["token_env"], "").strip()
@@ -642,8 +562,8 @@ def main() -> int:
         "resolved_archives": resolved,
         "archives": [],
     }
-
     critical_errors: list[str] = []
+
     for table_key, remote_filename in resolved.items():
         local_path = Path(
             hf_hub_download(
@@ -654,32 +574,29 @@ def main() -> int:
                 local_dir=raw_dir,
             )
         )
-        archive_result = inspect_archive(
-            archive_path=local_path,
-            table_key=table_key,
-            remote_filename=remote_filename,
-            expected_schema=expected_schemas.get(table_key, {}),
-            sample_size=int(config["inspection"]["csv_sample_size"]),
+        inspected = inspect_archive(
+            local_path,
+            table_key,
+            remote_filename,
+            schemas.get(table_key, {}),
+            int(config["inspection"]["csv_sample_size"]),
         )
-        manifest["archives"].append(archive_result)
-        if not archive_result.get("archive_ok"):
+        manifest["archives"].append(inspected)
+        if not inspected.get("archive_ok"):
             critical_errors.append(
-                f"{table_key}: {archive_result.get('archive_error', 'archive inspection failed')}"
+                f"{table_key}: {inspected.get('archive_error', 'inspection failed')}"
             )
         local_path.unlink(missing_ok=True)
 
-    manifest_path = output_dir / "source_manifest.json"
-    report_path = output_dir / "inspection_report.md"
-    manifest_path.write_text(
+    report = build_markdown(manifest)
+    (output_dir / "source_manifest.json").write_text(
         json.dumps(manifest, indent=2, default=str),
         encoding="utf-8",
     )
-    report = build_markdown(manifest)
-    report_path.write_text(report, encoding="utf-8")
+    (output_dir / "inspection_report.md").write_text(report, encoding="utf-8")
 
-    summary_path = os.getenv("GITHUB_STEP_SUMMARY")
-    if summary_path:
-        with Path(summary_path).open("a", encoding="utf-8") as handle:
+    if summary := os.getenv("GITHUB_STEP_SUMMARY"):
+        with Path(summary).open("a", encoding="utf-8") as handle:
             handle.write(report)
 
     if critical_errors:
