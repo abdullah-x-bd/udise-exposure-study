@@ -280,7 +280,7 @@ teacher:
     - class_taught_sec_hsec
     - class_taugt_pre_primary_only
     - class_taught_pr_and_pre_pri
-    - teachers_involve_non_training_assignment
+    - teacher_involve_non_training_assignment
     - diploma_certificate
     - bachelor_of_ee
     - bed_equivalent
