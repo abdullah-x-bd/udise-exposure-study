@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.env
+.DS_Store
+
+# Raw and processed microdata must remain outside GitHub
+data/
+*.zip
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.parquet
+*.duckdb
+*.db
+
+# Generated inspection outputs
+outputs/inspection/*
+!outputs/inspection/.gitkeep
