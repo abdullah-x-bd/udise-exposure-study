@@ -71,7 +71,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: national-a0-analysis-2024-25
-          path: outputs/national_a0/
+          path: |
+            outputs/national_a0/figures/
+            outputs/national_a0/tables/
+            outputs/national_a0/national_a0_report.md
           if-no-files-found: warn
           retention-days: 30
 
