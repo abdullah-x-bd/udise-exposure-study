@@ -1,0 +1,117 @@
+name: Build complete A0 indicator system
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/comprehensive-a0-analysis.yml"
+      - "src/udise/indicator_registry.py"
+      - "src/udise/comprehensive_a0_analysis.py"
+      - "tests/test_indicator_registry.py"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: comprehensive-a0-analysis
+  cancel-in-progress: true
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+      GH_TOKEN: ${{ github.token }}
+      PIPELINE_ISSUE: "10"
+      MPLBACKEND: Agg
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Post analysis start
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### Complete A0 indicator run started
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The run is calculating all supported primary, secondary and tertiary indicators, all A0 baseline comparisons, state and district outputs, interaction grids, fixed-effect associations and the complete figure set."
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Run tests
+        run: pytest
+
+      - name: Show runner capacity
+        run: |
+          free -h
+          df -h .
+
+      - name: Build all indicators, comparisons and figures
+        run: >-
+          python -m udise.comprehensive_a0_analysis
+          --output outputs/comprehensive_a0
+          --upload-school-indicators
+
+      - name: Upload aggregate outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-a0-analysis-2024-25
+          path: |
+            outputs/comprehensive_a0/tables/
+            outputs/comprehensive_a0/figures/
+            outputs/comprehensive_a0/comprehensive_a0_report.md
+            outputs/comprehensive_a0/analysis_manifest.json
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 30
+
+      - name: Post successful report
+        if: success()
+        run: |
+          {
+            echo "### Complete A0 indicator run succeeded"
+            echo
+            cat outputs/comprehensive_a0/comprehensive_a0_report.md
+            echo
+            echo "The artifact contains the full indicator catalog, all national and state baseline tables, district profiles, interaction grids, fixed-effect associations and the full graph library."
+            echo
+            echo "The school-level indicator Parquet file has been uploaded to the private Hugging Face dataset."
+            echo
+            echo "Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+          } > /tmp/comprehensive-success.md
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body-file /tmp/comprehensive-success.md
+
+      - name: Post failed report
+        if: failure()
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### Complete A0 indicator run failed
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The logs will be inspected and the pipeline corrected before rerunning."
+
+      - name: Show final capacity
+        if: always()
+        run: df -h .
