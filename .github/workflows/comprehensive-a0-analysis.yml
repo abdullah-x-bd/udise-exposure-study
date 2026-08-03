@@ -9,6 +9,9 @@ on:
       - ".github/workflows/comprehensive-a0-analysis.yml"
       - "src/udise/indicator_registry.py"
       - "src/udise/comprehensive_a0_analysis.py"
+      - "src/udise/build_indicator_base.py"
+      - "src/udise/source_and_composition_analysis.py"
+      - "src/udise/aggregate_indicator_domain.py"
       - "tests/test_indicator_registry.py"
 
 permissions:
@@ -19,29 +22,29 @@ concurrency:
   group: comprehensive-a0-analysis
   cancel-in-progress: true
 
-jobs:
-  analyse:
-    runs-on: ubuntu-latest
-    timeout-minutes: 330
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  GH_TOKEN: ${{ github.token }}
+  PIPELINE_ISSUE: "10"
+  MPLBACKEND: Agg
+  PYTHONUNBUFFERED: "1"
 
-    env:
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
-      GH_TOKEN: ${{ github.token }}
-      PIPELINE_ISSUE: "10"
-      MPLBACKEND: Agg
-      PYTHONUNBUFFERED: "1"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Post analysis start
         run: |
           gh issue comment "$PIPELINE_ISSUE" \
             --repo "$GITHUB_REPOSITORY" \
-            --body "### Complete A0 indicator run started
+            --body "### Split complete A0 analysis started
 
           Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
 
-          The run is calculating all supported primary, secondary and tertiary indicators, all A0 baseline comparisons, state and district outputs, interaction grids, fixed-effect associations and the complete figure set."
+          The analysis is split into a school-indicator build, direct source and composition analysis, and bounded domain jobs for every secondary and tertiary indicator."
 
       - name: Check out repository
         uses: actions/checkout@v4
@@ -58,60 +61,167 @@ jobs:
       - name: Run tests
         run: pytest
 
+  build_indicator_base:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
       - name: Show runner capacity
         run: |
           free -h
           df -h .
 
-      - name: Build all indicators, comparisons and figures
+      - name: Build and upload private school indicator base
         run: >-
-          python -m udise.comprehensive_a0_analysis
-          --output outputs/comprehensive_a0
-          --upload-school-indicators
+          python -m udise.build_indicator_base
+          --output outputs/indicator_base
+          --upload
 
-      - name: Upload aggregate outputs
-        if: always()
+      - name: Upload indicator-base report
         uses: actions/upload-artifact@v4
         with:
-          name: comprehensive-a0-analysis-2024-25
+          name: a0-school-indicator-base-report
           path: |
-            outputs/comprehensive_a0/tables/
-            outputs/comprehensive_a0/figures/
-            outputs/comprehensive_a0/comprehensive_a0_report.md
-            outputs/comprehensive_a0/analysis_manifest.json
-          if-no-files-found: warn
+            outputs/indicator_base/indicator_base_manifest.json
+            outputs/indicator_base/indicator_base_report.md
+          if-no-files-found: error
+          retention-days: 30
+
+  source_composition:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Analyse direct source parameters and social composition
+        run: >-
+          python -m udise.source_and_composition_analysis
+          --output outputs/source_composition
+
+      - name: Upload source and composition outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: a0-source-and-composition-2024-25
+          path: outputs/source_composition/
+          if-no-files-found: error
           compression-level: 6
           retention-days: 30
 
-      - name: Post successful report
-        if: success()
-        run: |
-          {
-            echo "### Complete A0 indicator run succeeded"
-            echo
-            cat outputs/comprehensive_a0/comprehensive_a0_report.md
-            echo
-            echo "The artifact contains the full indicator catalog, all national and state baseline tables, district profiles, interaction grids, fixed-effect associations and the full graph library."
-            echo
-            echo "The school-level indicator Parquet file has been uploaded to the private Hugging Face dataset."
-            echo
-            echo "Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
-          } > /tmp/comprehensive-success.md
-          gh issue comment "$PIPELINE_ISSUE" \
-            --repo "$GITHUB_REPOSITORY" \
-            --body-file /tmp/comprehensive-success.md
+  domain_analysis:
+    needs:
+      - test
+      - build_indicator_base
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        domain:
+          - access
+          - infrastructure
+          - wash
+          - learning_environment
+          - digital
+          - teachers
+          - governance
+          - welfare
+          - inclusion
+          - vulnerability
+          - age_grade
+          - tertiary
+    runs-on: ubuntu-latest
+    timeout-minutes: 210
 
-      - name: Post failed report
-        if: failure()
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Run bounded domain analysis
+        run: >-
+          python -m udise.aggregate_indicator_domain
+          --domain "${{ matrix.domain }}"
+          --output outputs/domain_analysis
+
+      - name: Upload domain tables and figures
+        uses: actions/upload-artifact@v4
+        with:
+          name: a0-domain-${{ matrix.domain }}-2024-25
+          path: outputs/domain_analysis/${{ matrix.domain }}/
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 30
+
+  complete:
+    if: always()
+    needs:
+      - test
+      - build_indicator_base
+      - source_composition
+      - domain_analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Report complete workflow status
         run: |
+          TEST_RESULT='${{ needs.test.result }}'
+          BASE_RESULT='${{ needs.build_indicator_base.result }}'
+          SOURCE_RESULT='${{ needs.source_composition.result }}'
+          DOMAIN_RESULT='${{ needs.domain_analysis.result }}'
+
+          if [[ "$TEST_RESULT" == "success" && "$BASE_RESULT" == "success" && "$SOURCE_RESULT" == "success" && "$DOMAIN_RESULT" == "success" ]]; then
+            gh issue comment "$PIPELINE_ISSUE" \
+              --repo "$GITHUB_REPOSITORY" \
+              --body "### Complete A0 indicator system succeeded
+
+            Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+            The private school-level indicator base, direct source audit, national and state social-composition analysis, all domain exposure tables, A0-baseline gaps, district comparisons, interaction grids, fixed-effect associations and full domain graph library have completed."
+            exit 0
+          fi
+
           gh issue comment "$PIPELINE_ISSUE" \
             --repo "$GITHUB_REPOSITORY" \
-            --body "### Complete A0 indicator run failed
+            --body "### Complete A0 indicator system has failed components
 
           Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
 
-          The logs will be inspected and the pipeline corrected before rerunning."
+          test=$TEST_RESULT
+          indicator_base=$BASE_RESULT
+          source_composition=$SOURCE_RESULT
+          domain_analysis=$DOMAIN_RESULT
 
-      - name: Show final capacity
-        if: always()
-        run: df -h .
+          Failed components will be inspected and rerun independently."
+          exit 1
