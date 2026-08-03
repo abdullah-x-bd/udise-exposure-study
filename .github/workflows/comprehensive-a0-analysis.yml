@@ -7,10 +7,10 @@ on:
       - main
     paths:
       - ".github/workflows/comprehensive-a0-analysis.yml"
+      - "src/udise/domain_native_a0.py"
       - "src/udise/indicator_registry.py"
       - "src/udise/comprehensive_a0_analysis.py"
-      - "src/udise/comprehensive_a0_staged.py"
-      - "tests/test_indicator_registry.py"
+      - "tests/test_domain_native_a0.py"
 
 permissions:
   contents: read
@@ -29,161 +29,184 @@ env:
   PYTHONUNBUFFERED: "1"
 
 jobs:
-  build-indicator-checkpoint:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Post domain-native analysis start
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### Domain-native complete A0 analysis started
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The analysis now uses a compact social foundation and separate indicator-domain files. No runner constructs the former 11.7 GiB wide temporary table."
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - run: pytest
+
+  foundation:
+    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 180
-
     steps:
-      - name: Post staged-run start
-        run: |
-          gh issue comment "$PIPELINE_ISSUE" \
-            --repo "$GITHUB_REPOSITORY" \
-            --body "### Corrected staged A0 run started
-
-          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
-
-          Phase 1 builds the school indicator table with a 4 GB DuckDB memory cap and uploads a private Parquet checkpoint. Phase 2 calculates aggregate comparisons and figures in bounded indicator batches."
-
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-
-      - name: Install project
-        run: python -m pip install -e .
-
-      - name: Run tests
-        run: pytest
-
+      - run: python -m pip install -e .
       - name: Show runner capacity
         run: |
           free -h
           df -h .
-
-      - name: Build and upload private school-indicator checkpoint
+      - name: Build compact private social foundation
         run: >-
-          python -m udise.comprehensive_a0_staged build
-          --output outputs/comprehensive_a0
-
-      - name: Upload foundational aggregate tables
-        if: always()
-        uses: actions/upload-artifact@v4
+          python -m udise.domain_native_a0 foundation
+          --output outputs/domain_native_a0
+          --upload
+      - uses: actions/upload-artifact@v4
         with:
-          name: comprehensive-a0-build-foundation
+          name: a0-social-foundation-report
           path: |
-            outputs/comprehensive_a0/tables/indicator_catalog.csv
-            outputs/comprehensive_a0/tables/primary_numeric_summary.csv
-            outputs/comprehensive_a0/tables/dcf_raw_code_audit.csv
-            outputs/comprehensive_a0/tables/national_stage_representation.csv
-            outputs/comprehensive_a0/tables/state_stage_representation.csv
-            outputs/comprehensive_a0/tables/national_teacher_social_category_representation.csv
-            outputs/comprehensive_a0/tables/state_teacher_social_category_representation.csv
-            outputs/comprehensive_a0/build_manifest.json
-          if-no-files-found: warn
-          compression-level: 6
-          retention-days: 7
+            outputs/domain_native_a0/foundation/foundation_manifest.json
+            outputs/domain_native_a0/foundation/foundation_report.md
+          if-no-files-found: error
+          retention-days: 30
 
-      - name: Post build-phase failure
-        if: failure()
-        run: |
-          gh issue comment "$PIPELINE_ISSUE" \
-            --repo "$GITHUB_REPOSITORY" \
-            --body "### Corrected A0 build phase failed
-
-          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
-
-          The failure is isolated to the school-indicator checkpoint phase. Aggregate calculations did not start."
-
-      - name: Show final build capacity
-        if: always()
-        run: |
-          free -h
-          df -h .
-
-  aggregate-and-figure:
-    needs: build-indicator-checkpoint
+  source:
+    needs: foundation
     runs-on: ubuntu-latest
     timeout-minutes: 240
-
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-
-      - name: Install project
-        run: python -m pip install -e .
-
-      - name: Download foundational tables
-        uses: actions/download-artifact@v4
-        with:
-          name: comprehensive-a0-build-foundation
-          path: outputs/comprehensive_a0
-
-      - name: Show runner capacity
-        run: |
-          free -h
-          df -h .
-
-      - name: Build all comparisons and figures in batches
+      - run: python -m pip install -e .
+      - name: Analyse every direct source column and social composition
         run: >-
-          python -m udise.comprehensive_a0_staged aggregate
-          --output outputs/comprehensive_a0
-
-      - name: Upload complete aggregate outputs
-        if: always()
-        uses: actions/upload-artifact@v4
+          python -m udise.domain_native_a0 source
+          --output outputs/domain_native_a0
+      - uses: actions/upload-artifact@v4
         with:
-          name: comprehensive-a0-analysis-2024-25
-          path: |
-            outputs/comprehensive_a0/tables/
-            outputs/comprehensive_a0/figures/
-            outputs/comprehensive_a0/comprehensive_a0_report.md
-            outputs/comprehensive_a0/build_manifest.json
-            outputs/comprehensive_a0/analysis_manifest.json
-          if-no-files-found: warn
+          name: a0-primary-source-and-composition
+          path: outputs/domain_native_a0/source/
+          if-no-files-found: error
           compression-level: 6
           retention-days: 30
 
-      - name: Post successful report
-        if: success()
-        run: |
-          {
-            echo "### Complete staged A0 indicator run succeeded"
-            echo
-            cat outputs/comprehensive_a0/comprehensive_a0_report.md
-            echo
-            echo "The artifact contains the indicator catalog, all national and state baseline tables, district profiles, interaction grids, fixed-effect associations and the complete graph library."
-            echo
-            echo "The school-level indicator Parquet checkpoint remains in the private Hugging Face dataset."
-            echo
-            echo "Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
-          } > /tmp/comprehensive-success.md
-          gh issue comment "$PIPELINE_ISSUE" \
-            --repo "$GITHUB_REPOSITORY" \
-            --body-file /tmp/comprehensive-success.md
+  domain:
+    needs: foundation
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        domain:
+          - access
+          - infrastructure
+          - wash
+          - learning_environment
+          - digital
+          - teachers
+          - governance
+          - welfare
+          - inclusion
+          - vulnerability
+          - age_grade
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - name: Build and analyse bounded indicator domain
+        run: >-
+          python -m udise.domain_native_a0 domain
+          --domain "${{ matrix.domain }}"
+          --output outputs/domain_native_a0
+          --upload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a0-domain-${{ matrix.domain }}-2024-25
+          path: |
+            outputs/domain_native_a0/domains/${{ matrix.domain }}/domain_manifest.json
+            outputs/domain_native_a0/domains/${{ matrix.domain }}/analysis/
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 30
 
-      - name: Post aggregate-phase failure
-        if: failure()
+  tertiary:
+    needs: domain
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - name: Build and analyse tertiary structural indicators
+        run: >-
+          python -m udise.domain_native_a0 tertiary
+          --output outputs/domain_native_a0
+          --upload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a0-domain-tertiary-2024-25
+          path: |
+            outputs/domain_native_a0/domains/tertiary/domain_manifest.json
+            outputs/domain_native_a0/domains/tertiary/analysis/
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 30
+
+  complete:
+    if: always()
+    needs:
+      - test
+      - foundation
+      - source
+      - domain
+      - tertiary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report complete analysis status
         run: |
+          TEST='${{ needs.test.result }}'
+          FOUNDATION='${{ needs.foundation.result }}'
+          SOURCE='${{ needs.source.result }}'
+          DOMAIN='${{ needs.domain.result }}'
+          TERTIARY='${{ needs.tertiary.result }}'
+          if [[ "$TEST" == "success" && "$FOUNDATION" == "success" && "$SOURCE" == "success" && "$DOMAIN" == "success" && "$TERTIARY" == "success" ]]; then
+            gh issue comment "$PIPELINE_ISSUE" \
+              --repo "$GITHUB_REPOSITORY" \
+              --body "### Domain-native complete A0 analysis succeeded
+
+            Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+            Every direct source column, every supported secondary indicator, all fifteen tertiary indicators, all A0-baseline gaps, all pairwise comparisons, national and state concentration gradients, district comparisons, interaction grids, fixed-effect associations and the complete domain graph library have been produced."
+            exit 0
+          fi
           gh issue comment "$PIPELINE_ISSUE" \
             --repo "$GITHUB_REPOSITORY" \
-            --body "### Corrected A0 aggregate phase failed
+            --body "### Domain-native complete A0 analysis has failed components
 
           Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
 
-          The private school-indicator checkpoint completed successfully. The failure is isolated to one aggregate or figure batch and can be resumed without rebuilding the raw data layer."
-
-      - name: Show final aggregate capacity
-        if: always()
-        run: |
-          free -h
-          df -h .
+          test=$TEST
+          foundation=$FOUNDATION
+          source=$SOURCE
+          domains=$DOMAIN
+          tertiary=$TERTIARY"
+          exit 1
