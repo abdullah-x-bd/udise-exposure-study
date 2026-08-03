@@ -1,0 +1,84 @@
+name: Inspect UDISE source data
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: inspect-udise-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Run tests
+        run: pytest
+
+  inspect:
+    needs: test
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Prepare output directory
+        run: mkdir -p outputs/inspection
+
+      - name: Show runner capacity
+        run: |
+          free -h
+          df -h .
+
+      - name: Inspect private UDISE archives
+        run: >-
+          python -m udise.inspect_data
+          --config config/dataset.yml
+          --schema config/expected_schema.yml
+
+      - name: Upload aggregate inspection report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: udise-2024-25-source-inspection
+          path: outputs/inspection/
+          if-no-files-found: warn
+          retention-days: 14

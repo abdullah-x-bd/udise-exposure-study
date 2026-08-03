@@ -1,0 +1,42 @@
+year: "2024_25"
+source:
+  repo_type: dataset
+  repo_env: HF_DATASET_REPO
+  token_env: HF_TOKEN
+
+archives:
+  profile_1:
+    pattern: "profile_data_1_*2024-25*.zip"
+    description: "School basic profile and location"
+    expected_grain: "one row per school"
+  profile_2:
+    pattern: "profile_data_2_*2024-25*.zip"
+    description: "RTE and school management information"
+    expected_grain: "one row per school"
+  facility:
+    pattern: "facility_data_*2024-25*.zip"
+    description: "Infrastructure and facilities"
+    expected_grain: "one row per school"
+  enrolment_1:
+    pattern: "enrolment_data_1_*2024-25*.zip"
+    description: "Social category, religion, welfare, disability and repeater enrolment"
+    expected_grain: "one row per school and item_group/item_id"
+  enrolment_2:
+    pattern: "enrolment_data_2_*2024-25*.zip"
+    description: "Age-wise enrolment"
+    expected_grain: "one row per school and age item_id"
+  teacher:
+    pattern: "teacher_data_*2024-25*.zip"
+    description: "Teacher profile"
+    expected_grain: "one row per school"
+
+inspection:
+  output_dir: outputs/inspection
+  csv_sample_size: 100000
+  archive_member_extensions:
+    - .csv
+    - .tsv
+    - .txt
+    - .parquet
+    - .xlsx
+    - .xls
