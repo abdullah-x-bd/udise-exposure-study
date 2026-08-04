@@ -1,0 +1,100 @@
+name: Build refined state-accountability A0 analysis
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/udise/refined_state_accountability_a0_analysis.py"
+      - "tests/test_refined_state_accountability_a0_analysis.py"
+      - ".github/workflows/refined-state-accountability-a0-analysis.yml"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: refined-state-accountability-a0-analysis
+  cancel-in-progress: true
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+      GH_TOKEN: ${{ github.token }}
+      PIPELINE_ISSUE: "10"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Post refined-analysis start
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### Refined state-accountability A0 analysis started
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          This refinement adds direct physical-deterioration plus digital-exclusion combinations and physical-deterioration plus WASH combinations, including finance and inspection non-response layers."
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Run tests
+        run: pytest
+
+      - name: Build refined state-accountability analysis
+        run: >-
+          python -m udise.refined_state_accountability_a0_analysis
+          --output outputs/refined_state_accountability_a0
+
+      - name: Upload outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: refined-state-accountability-a0-analysis-2024-25
+          path: |
+            outputs/refined_state_accountability_a0/tables/
+            outputs/refined_state_accountability_a0/state_accountability_report.md
+            outputs/refined_state_accountability_a0/analysis_manifest.json
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 30
+
+      - name: Post successful report
+        if: success()
+        run: |
+          {
+            echo "### Refined state-accountability A0 analysis succeeded"
+            echo
+            cat outputs/refined_state_accountability_a0/state_accountability_report.md
+            echo
+            echo "The artifact includes the added physical-digital and physical-WASH combinations across state/local-government, aided, private and all-school scopes."
+            echo
+            echo "Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+          } > /tmp/refined-state-accountability-success.md
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body-file /tmp/refined-state-accountability-success.md
+
+      - name: Post failed report
+        if: failure()
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### Refined state-accountability A0 analysis failed
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The failure will be diagnosed before the refined analysis is rerun."
