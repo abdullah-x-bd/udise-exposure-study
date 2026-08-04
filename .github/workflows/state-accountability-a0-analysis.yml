@@ -1,0 +1,100 @@
+name: Build state-accountability A0 analysis
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/udise/state_accountability_a0_analysis.py"
+      - "tests/test_state_accountability_a0_analysis.py"
+      - ".github/workflows/state-accountability-a0-analysis.yml"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: state-accountability-a0-analysis
+  cancel-in-progress: true
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+      GH_TOKEN: ${{ github.token }}
+      PIPELINE_ISSUE: "10"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Post analysis start
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### State-accountability A0 analysis started
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The run focuses on state/local-government-managed schools and tests compound physical deterioration, maintenance failure, WASH failure, electricity and digital exclusion, grants and administrative non-response. Aided, private and all-school scopes are retained as accountability comparisons."
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Run tests
+        run: pytest
+
+      - name: Build state-accountability analysis
+        run: >-
+          python -m udise.state_accountability_a0_analysis
+          --output outputs/state_accountability_a0
+
+      - name: Upload outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: state-accountability-a0-analysis-2024-25
+          path: |
+            outputs/state_accountability_a0/tables/
+            outputs/state_accountability_a0/state_accountability_report.md
+            outputs/state_accountability_a0/analysis_manifest.json
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 30
+
+      - name: Post successful report
+        if: success()
+        run: |
+          {
+            echo "### State-accountability A0 analysis succeeded"
+            echo
+            cat outputs/state_accountability_a0/state_accountability_report.md
+            echo
+            echo "The artifact contains state/local-government, aided, private and all-school exposure tables, A0-baseline contrasts, concentration gradients and robust compound rankings."
+            echo
+            echo "Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+          } > /tmp/state-accountability-success.md
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body-file /tmp/state-accountability-success.md
+
+      - name: Post failed report
+        if: failure()
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### State-accountability A0 analysis failed
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The failed step will be inspected before the analysis is rerun."
