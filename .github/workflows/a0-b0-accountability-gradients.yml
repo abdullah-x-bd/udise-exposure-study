@@ -1,0 +1,102 @@
+name: Build A0-B0 accountability gradient graphs
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/udise/a0_b0_accountability_gradients.py"
+      - "tests/test_a0_b0_accountability_gradients.py"
+      - ".github/workflows/a0-b0-accountability-gradients.yml"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: a0-b0-accountability-gradients
+  cancel-in-progress: true
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+      GH_TOKEN: ${{ github.token }}
+      PIPELINE_ISSUE: "10"
+      PYTHONUNBUFFERED: "1"
+      MPLBACKEND: "Agg"
+    steps:
+      - name: Post analysis start
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### A0-B0 public-school gradient analysis started
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The run compares A0 Muslim and B0 General-baseline exposure as own-group school concentration rises, nationally and in Bihar, Uttar Pradesh, Jharkhand, Uttarakhand and Assam. It creates equal-school, student-weighted and A0-minus-B0 gap graphs for every state-accountability combination."
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and chart dependencies
+        run: python -m pip install -e . matplotlib
+
+      - name: Run tests
+        run: pytest
+
+      - name: Build A0-B0 tables and graphs
+        run: >-
+          python -m udise.a0_b0_accountability_gradients
+          --output outputs/a0_b0_accountability_gradients
+
+      - name: Upload complete analysis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a0-b0-accountability-gradients-2024-25
+          path: |
+            outputs/a0_b0_accountability_gradients/tables/
+            outputs/a0_b0_accountability_gradients/figures/
+            outputs/a0_b0_accountability_gradients/a0_b0_accountability_report.md
+            outputs/a0_b0_accountability_gradients/analysis_manifest.json
+          if-no-files-found: warn
+          compression-level: 4
+          retention-days: 30
+
+      - name: Post successful report
+        if: success()
+        run: |
+          {
+            echo "### A0-B0 public-school gradient analysis succeeded"
+            echo
+            cat outputs/a0_b0_accountability_gradients/a0_b0_accountability_report.md
+            echo
+            echo "The artifact contains every national and top-five-state A0 versus B0 concentration table and graph."
+            echo
+            echo "Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+          } > /tmp/a0-b0-success.md
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body-file /tmp/a0-b0-success.md
+
+      - name: Post failed report
+        if: failure()
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### A0-B0 public-school gradient analysis failed
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The failed stage will be inspected and corrected before rerunning."
