@@ -1,0 +1,100 @@
+name: Build compound state A0 analysis
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/udise/compound_state_a0_analysis.py"
+      - "tests/test_compound_state_a0_analysis.py"
+      - ".github/workflows/compound-state-a0-analysis.yml"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: compound-state-a0-analysis
+  cancel-in-progress: true
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+      GH_TOKEN: ${{ github.token }}
+      PIPELINE_ISSUE: "10"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Post compound-analysis start
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### Compound state A0 analysis started
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The run is evaluating all two-condition and three-condition school-level deprivation intersections, predefined four- and five-condition structural bundles, A0-B0/C0/D0/E0 high-concentration gaps and concentration difference-in-differences in Bihar, Uttar Pradesh, Jharkhand, Uttarakhand and Assam."
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Run tests
+        run: pytest
+
+      - name: Build compound state analysis
+        run: >-
+          python -m udise.compound_state_a0_analysis
+          --output outputs/compound_state_a0
+
+      - name: Upload compound analysis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compound-state-a0-analysis-2024-25
+          path: |
+            outputs/compound_state_a0/tables/
+            outputs/compound_state_a0/compound_state_a0_report.md
+            outputs/compound_state_a0/analysis_manifest.json
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 30
+
+      - name: Post successful report
+        if: success()
+        run: |
+          {
+            echo "### Compound state A0 analysis succeeded"
+            echo
+            cat outputs/compound_state_a0/compound_state_a0_report.md
+            echo
+            echo "The artifact contains every pair, triple and predefined structural bundle, all group exposures, concentration gradients, A0-baseline gaps and concentration difference-in-differences."
+            echo
+            echo "Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+          } > /tmp/compound-success.md
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body-file /tmp/compound-success.md
+
+      - name: Post failed report
+        if: failure()
+        run: |
+          gh issue comment "$PIPELINE_ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "### Compound state A0 analysis failed
+
+          Workflow run: [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The compound-analysis logs will be inspected and corrected before rerunning."
