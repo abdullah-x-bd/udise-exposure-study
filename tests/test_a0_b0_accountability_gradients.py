@@ -3,6 +3,7 @@ from udise.a0_b0_accountability_gradients import (
     GEOGRAPHIES,
     GROUPS,
     SCOPES,
+    calculate_contrasts,
     calculate_summaries,
     flag,
 )
@@ -36,14 +37,14 @@ def test_compound_flag_requires_all_conditions_observed_and_adverse():
 
 
 def test_summary_uses_band_zero_for_equal_school_and_positive_band_for_weighted():
-    rows = []
+    gradients = []
     for estimand, low_order in (
         ("equal-school prevalence", 0),
         ("group-student-weighted exposure", 1),
     ):
         for group, low, high in (("A0", 10.0, 30.0), ("B0", 8.0, 12.0)):
             for order, value in ((low_order, low), (8, high)):
-                rows.append(
+                gradients.append(
                     {
                         "management_scope": "state_local_government",
                         "geography_code": "NATIONAL",
@@ -66,7 +67,8 @@ def test_summary_uses_band_zero_for_equal_school_and_positive_band_for_weighted(
                         "eligible_schools": 100,
                     }
                 )
-    summaries = calculate_summaries(rows)
+    contrasts = calculate_contrasts(gradients)
+    summaries = calculate_summaries(contrasts)
     selected = [
         row
         for row in summaries
