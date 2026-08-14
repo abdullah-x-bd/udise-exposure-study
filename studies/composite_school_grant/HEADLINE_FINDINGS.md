@@ -2,260 +2,314 @@
 
 ## Headline findings
 
-This study is now complete as a first full empirical pass across the available UDISE vintages from 2018-19 through 2025-26.
+This study uses the available all-India UDISE+ school microdata from 2018-19 through 2025-26 to examine what happens around the Composite School Grant (CSG) enrolment thresholds.
 
-The strongest result is not that larger Composite School Grants clearly improve basic school facilities. The stronger and more defensible finding is that the enrolment formula does generate larger reported grant receipts and expenditures around the 250-pupil threshold in the usable post-pandemic cohorts, but those extra reported resources do not produce a consistent detectable improvement in basic facility functionality over the following period.
+The strongest current result is more specific than the first outcome pass suggested:
 
-In short:
+> **Crossing the 250-pupil threshold produces a persistent increase in reported CSG expenditure, but across a comprehensive set of UDISE-observed facility, administrative, digital, WASH, accessibility, and school-safety outcomes we cannot identify a robust corresponding improvement within the following one to three UDISE rounds.**
 
-**Money moves. Basic facility outcomes mostly do not.**
+The clean post-pandemic cohorts show three separate stages:
 
-That is potentially a useful implementation-effectiveness result, but it should be framed as suggestive quasi-experimental evidence rather than a perfect textbook regression discontinuity because the enrolment distribution is not completely smooth around the thresholds.
+1. the ₹25,000 statutory band increase is only partly reflected in reported school-level receipt in the first observable post-assignment round;
+2. reported expenditure rises immediately and the expenditure discontinuity persists or accumulates in later rounds;
+3. the expanded outcome search does not reveal a stable observable channel that survives baseline checks and multiple-testing correction.
+
+The important qualification is that the uploaded all-India microdata contain **total CSG receipt and total CSG expenditure, but no line-item CSG expenditure ledger**. We can therefore locate the additional expenditure **in time**, but not literally identify whether a rupee was spent on cleaning materials, minor repairs, electricity charges, teaching aids, consumables, or another permitted purpose.
+
+This is not evidence of misuse, waste, or no benefit. It is evidence of a measurable gap between additional reported expenditure and the school outcomes that UDISE allows us to observe.
 
 ---
 
 ## Study design
 
-The study exploits the enrolment bands used for the Composite School Grant. Under the schedule tested here, crossing 250 pupils changes the nominal grant band from ₹50,000 to ₹75,000, a ₹25,000 statutory step.
+The study exploits the enrolment bands used for the Composite School Grant. The headline design focuses on the 250-pupil threshold, where the nominal grant band rises from ₹50,000 to ₹75,000, a ₹25,000 statutory step.
 
-The empirical sample is restricted to UDISE government-management categories 1, 2 and 3, corresponding to Department of Education, Tribal/Social Welfare, and Local Body government schools. Private and government-aided schools are excluded from the causal sample because the Composite School Grant under Samagra Shiksha is a government-school grant.
+The empirical sample is restricted to UDISE government-management categories 1, 2 and 3. Private and government-aided schools are excluded from the causal sample.
 
-The analysis uses lagged enrolment to define assignment and follows the same school forward. Six assignment-to-outcome cohorts were constructed:
+The central specification uses:
 
-- 2018-19 to 2020-21
-- 2019-20 to 2021-22
-- 2020-21 to 2022-23
-- 2021-22 to 2023-24
-- 2022-23 to 2024-25
-- 2023-24 to 2025-26
+- the 250-pupil threshold;
+- a ±30-pupil bandwidth;
+- a one-pupil donut around the threshold;
+- assignment-state fixed effects;
+- state-clustered standard errors;
+- the same school's outcomes over later UDISE rounds where harmonisation permits it.
 
-The central specification uses the 250-pupil threshold, a ±30-pupil bandwidth, excludes the immediate cutoff observation with a one-pupil donut, includes assignment-state fixed effects, and clusters uncertainty at the state level.
-
-Outcome analysis is based on changes in the same school's measured condition from the assignment-year baseline to the later outcome year. This is deliberately stricter than a cross-sectional comparison because it differences out persistent school-level condition differences.
+The 100-pupil threshold is not used as the headline design because enrolment bunching is much stronger there. The 250 threshold is substantially cleaner, although not perfectly smooth, so the preferred language is **suggestive quasi-experimental evidence**, not a flawless textbook regression discontinuity.
 
 ---
 
-## Finding 1. The grant formula creates a real first stage in the clean post-pandemic cohorts
+## Finding 1. The 250-pupil formula produces a real funding first stage in the two clean cohorts
 
-### 2021-22 assignment to 2023-24 outcome
+### 2021-22 assignment cohort
 
-At the 250-pupil threshold:
+In the first post-assignment funding/outcome round, 2023-24:
 
-- Reported CSG receipt increases by **₹12,461**
-- Standard error = ₹4,514
-- 95% CI approximately ₹3,615 to ₹21,307
-- p = 0.0058
+- reported CSG receipt rises by **₹12,484**;
+- SE = ₹4,513;
+- 95% CI approximately ₹3,639 to ₹21,329;
+- p = 0.0057.
 
-Reported CSG expenditure increases by **₹8,897**
+Reported CSG expenditure rises by **₹8,917**:
 
-- Standard error = ₹2,862
-- 95% CI approximately ₹3,287 to ₹14,506
-- p = 0.0019
+- SE = ₹2,860;
+- 95% CI approximately ₹3,312 to ₹14,523;
+- p = 0.0018.
 
-### 2022-23 assignment to 2024-25 outcome
+### 2022-23 assignment cohort
 
-At the same threshold:
+In 2024-25:
 
-- Reported CSG receipt increases by **₹12,232**
-- Standard error = ₹5,978
-- 95% CI approximately ₹514 to ₹23,950
-- p = 0.0408
+- reported CSG receipt rises by **₹12,202**;
+- SE = ₹5,979;
+- 95% CI approximately ₹483 to ₹23,920;
+- p = 0.0413.
 
-Reported CSG expenditure increases by **₹10,175**
+Reported CSG expenditure rises by **₹10,146**:
 
-- Standard error = ₹5,096
-- 95% CI approximately ₹187 to ₹20,163
-- p = 0.0459
+- SE = ₹5,096;
+- 95% CI approximately ₹159 to ₹20,133;
+- p = 0.0465.
 
-Across these two clean central cohorts, an inverse-variance descriptive combination gives approximately:
+The realized receipt discontinuity is therefore roughly half of the nominal ₹25,000 band step in these two clean cohorts.
 
-- **₹12,378 additional reported receipt**, 95% CI about ₹5,318 to ₹19,438
-- **₹9,203 additional reported expenditure**, 95% CI about ₹4,312 to ₹14,094
-
-This is not a substitute for the cohort-specific estimates, but it summarizes the scale of the observed first stage.
-
-The observed receipt step is roughly half of the ₹25,000 statutory band increase. The spending step is smaller still. This suggests incomplete transmission from nominal entitlement to reported school-level receipt and spending.
+The earlier pandemic-era cohorts do not provide an equally useful first stage because the relevant grant fields are zero or weak in the local sample. The newest 2023-24 assignment cohort contains extremely noisy grant amounts and is not pooled mechanically with the cleaner cohorts.
 
 ---
 
-## Finding 2. The first stage is not equally clean in every year
+## Finding 2. The expenditure effect is dynamic, not purely contemporaneous
 
-The earlier cohorts are not informative in the same way.
+The first pass only looked at the immediate post-assignment round. Extending the same schools forward changes the picture.
 
-For 2018-19 to 2020-21 and 2019-20 to 2021-22, the relevant reported receipt and expenditure fields are zero in the local sample, so those cohorts cannot identify a funding effect.
+### 2021-22 assignment cohort
 
-For 2020-21 to 2022-23, the 250-pupil receipt discontinuity is small and statistically indistinguishable from zero.
+Reported expenditure discontinuity:
 
-For 2023-24 to 2025-26, the receipt point estimate is very large and imprecise, while the expenditure estimate is also imprecise. This cohort appears to contain either a reporting, implementation, or coding regime change and should not be pooled mechanically with the cleaner 2021-22 and 2022-23 cohorts.
+- **2023-24: +₹8,917**, p = 0.0018;
+- **2024-25: +₹13,058**, p = 0.0030;
+- **2025-26: +₹6,806**, p = 0.214.
 
-Therefore the most credible first-stage evidence comes from **2021-22 and 2022-23 assignment cohorts**.
+Across all three later reporting rounds, cumulative reported CSG expenditure is:
 
----
+> **₹28,839 higher** for schools locally above the original 250-pupil threshold.
 
-## Finding 3. Basic facility functionality does not show a consistent positive response
+- SE = ₹8,692;
+- 95% CI approximately **₹11,802 to ₹45,876**;
+- p = **0.00091**.
 
-In the two cohorts with the cleanest 250-pupil funding first stage, the following outcomes show no consistent positive discontinuity in subsequent change:
+### 2022-23 assignment cohort
 
-- functional girls' toilets
-- functional boys' toilets
-- functional drinking water
-- handwashing facilities for meals
-- electricity
-- internet
-- library availability
+Reported expenditure discontinuity:
 
-### 2021-22 to 2023-24 central specification
+- **2024-25: +₹10,146**, p = 0.0465;
+- **2025-26: +₹23,895**, p = 0.0094.
 
-Estimated change at the threshold:
+Cumulative reported expenditure over the two subsequent UDISE rounds is:
 
-- Girls' toilet functionality: -0.41 percentage points, p = 0.223
-- Boys' toilet functionality: -0.69 percentage points, p = 0.081
-- Functional water: -0.01 percentage points, p = 0.979
-- Handwashing for meals: -0.39 percentage points, p = 0.419
-- Electricity: +0.34 percentage points, p = 0.095
-- Internet: -0.82 percentage points, p = 0.288
-- Library: -0.74 percentage points, p = 0.207
+> **₹34,033 higher**.
 
-### 2022-23 to 2024-25 central specification
+- SE = ₹12,467;
+- 95% CI approximately **₹9,597 to ₹58,469**;
+- p = **0.0063**.
 
-- Girls' toilet functionality: -0.08 percentage points, p = 0.770
-- Boys' toilet functionality: -0.30 percentage points, p = 0.241
-- Functional water: +0.02 percentage points, p = 0.797
-- Handwashing for meals: +0.13 percentage points, p = 0.700
-- Electricity: -0.37 percentage points, p = 0.015
-- Internet: +0.94 percentage points, p = 0.353
-- Library: +0.28 percentage points, p = 0.421
-
-The isolated negative electricity estimate in 2022-23 is not robust enough to treat as a substantive adverse effect. It weakens at wider bandwidths and does not replicate in the preceding or following cohorts.
-
-The overall pattern is therefore **no stable evidence that the marginal CSG increase at 250 pupils materially improves these basic facility-functionality outcomes over this horizon**.
+This means the relevant empirical object is not just a one-year expenditure response. The grant threshold is associated with a persistent/cumulative difference in reported expenditure over subsequent rounds.
 
 ---
 
-## Finding 4. This is not evidence that the grant is useless
+## Finding 3. The later expenditure gap is not simply explained by schools remaining above 250 pupils
 
-The estimates are local to schools around the enrolment threshold. They identify the effect of moving from one grant band to the next, not the effect of eliminating the Composite School Grant entirely.
+A natural concern is that the later expenditure difference is mechanically caused by the originally higher-enrolment schools remaining in the >250 grant band and repeatedly receiving the larger entitlement.
 
-A null marginal effect can arise for several reasons:
+We tested this directly.
 
-1. the grant increment may be too small relative to the school's maintenance needs
-2. the money may be spent on eligible items not captured by the selected UDISE facility indicators
-3. the spending may prevent deterioration rather than generate a visible upgrade
-4. schools may face procurement, timing, administrative, or implementation constraints
-5. reported receipt and reported expenditure may not perfectly measure usable cash at the school level
+### 2022-23 assignment cohort
 
-The paper should therefore avoid the claim that CSG "does not work." The supported claim is narrower:
+At the original threshold:
 
-> Around the 250-pupil funding threshold, larger reported Composite School Grant receipts and expenditures are not followed by a consistent detectable improvement in the basic facility-functionality indicators measured here.
+- 2024-25 enrolment discontinuity = **-1.13 pupils**, p = 0.426;
+- discontinuity in probability of still being above 250 in 2024-25 = **+0.68 percentage points**, p = 0.610;
+- 2025-26 enrolment discontinuity = **-1.59 pupils**, p = 0.305;
+- discontinuity in probability of still being above 250 in 2025-26 = **+0.21 percentage points**, p = 0.765.
 
----
+### 2021-22 assignment cohort
 
-## Finding 5. The 100-pupil cutoff should not be the headline RD
+The same pattern holds:
 
-The 100-pupil threshold has a strong funding first stage in several cohorts, but the enrolment distribution shows pronounced bunching around 100.
+- 2023-24 enrolment discontinuity = **+0.26 pupils**, p = 0.848;
+- probability of remaining above 250 = **+1.00 percentage point**, p = 0.356;
+- 2024-25 enrolment discontinuity = **-0.54 pupils**, p = 0.717;
+- probability of remaining above 250 = **+0.09 percentage points**, p = 0.937;
+- 2025-26 enrolment discontinuity = **-1.36 pupils**, p = 0.439;
+- probability of remaining above 250 = **+0.44 percentage points**, p = 0.673.
 
-In the 2022-23 assignment cohort, for example, the local log-density diagnostic implies roughly a 31% discontinuity in school counts around 100, and the five-cell count ratio just above versus just below the cutoff is about 1.31.
+So the persistent cumulative expenditure difference is **not well explained by a persistent local discontinuity in later enrolment or by schools remaining discontinuously more likely to sit above 250**.
 
-That is too large to ignore in a continuity-based RD design.
-
-The 250 cutoff is better, but not perfect. The corresponding log-density diagnostics around 250 are approximately:
-
-- 2018-19: +7.6%
-- 2019-20: +7.3%
-- 2020-21: +18.8%
-- 2021-22: +18.2%
-- 2022-23: +9.3%
-- 2023-24: +6.1%
-
-The immediate five-enrolment-cell ratios above versus below 250 are much closer to one in the later cohorts, approximately 1.15 in 2021-22, 1.05 in 2022-23, and 1.01 in 2023-24.
-
-This makes the 250 threshold substantially more defensible than 100, but still not an immaculate RD. Possible explanations include strategic enrolment reporting, heaping, administrative assignment rules, or naturally discontinuous school-size distributions.
-
-The final causal language should therefore remain careful.
+This does not prove that the original grant literally sat unspent and was carried forward. UDISE does not identify balances or carry-forward transactions. Plausible mechanisms include allocation/reporting lags, expenditure timing, administrative persistence, or other features of the grant cycle. The data establish persistence in reported expenditure, not the accounting mechanism behind it.
 
 ---
 
-## Finding 6. Baseline continuity is reasonably good for the headline facility outcomes
+## Finding 4. The original outcome set was too narrow, so we expanded it aggressively
 
-At the 250 threshold in the two clean funding cohorts, most baseline facility outcomes do not show statistically significant discontinuities before the later grant/outcome period.
+The first analysis focused on a conservative harmonised set of WASH, electricity, internet, library, and toilet outcomes. That was useful for validation but too selective for a claim about where the additional spending manifests.
 
-This is reassuring for:
+We therefore ran two much broader searches.
 
-- toilet functionality
-- functional water
-- handwashing
-- internet
-- library
-- electricity, although the 2022-23 baseline electricity test is somewhat close to conventional significance at p ≈ 0.086
+### A. Cross-year common-outcome screen
 
-Major-repair classroom condition is borderline discontinuous at baseline and classroom-repair fields also have poor cross-state coverage in the focused vintage. Classroom-condition estimates should therefore not be headline outcomes.
+For each clean cohort we screened every usable numeric field shared between the assignment year and later outcome year in the facility and school-profile data. The design uses the change in the same school's outcome from baseline, checks baseline continuity at the threshold, and applies Benjamini-Hochberg false-discovery-rate correction across the outcome family.
 
-The national WASH, electricity, internet, and library outcomes have much broader state coverage and are the safer outcome family.
+This includes much more than the original seven outcomes, such as:
 
----
+- classroom counts and repair measures;
+- toilet and urinal counts;
+- multiple drinking-water sources and functionality fields;
+- handwashing;
+- boundary-wall and accessibility measures;
+- devices and digital facilities;
+- school-management and inspection variables;
+- several administrative and programme-participation measures.
 
-## Best current substantive interpretation
+**Result: no outcome survives the combined baseline-continuity and false-discovery screen in either clean cohort.**
 
-The cleanest interpretation is an implementation chain:
+Some fields generate nominal raw p-values, but these either have pre-existing threshold discontinuities or disappear once the large number of outcomes tested is accounted for.
 
-1. Crossing the 250-pupil threshold raises nominal CSG entitlement by ₹25,000.
-2. In the cleanest post-pandemic cohorts, reported receipt rises by only about ₹12,000.
-3. Reported expenditure rises by roughly ₹9,000 to ₹10,000.
-4. The selected basic facility-functionality outcomes do not show a corresponding stable positive change.
+### B. 2025-26 exhaustive level screen, including newly introduced fields
 
-That creates two policy questions rather than one:
+The 2025-26 microdata contain outcomes that did not exist in earlier UDISE vintages, including a dedicated school-safety table. Those variables cannot be analysed as baseline-to-outcome changes, but they can be searched exploratorily at the original 250 threshold.
 
-- Why does only part of the nominal grant-band increase appear in reported school receipt?
-- Why does the additional reported spending not translate into detectable changes in the basic facility indicators measured by UDISE?
+For the 2022-23 assignment cohort, the 2025-26 screen covered **146 numeric fields**:
 
-This is potentially more interesting than a simple positive-effect story because it separates **allocation, transmission, expenditure, and outcome conversion**.
+- 78 facility fields;
+- 21 school-safety fields;
+- 33 profile-1 fields;
+- 14 profile-2 fields.
 
----
+The 2021-22 assignment cohort was screened over the same 2025-26 field universe.
 
-## Recommended paper framing
+**Result: zero fields survive Benjamini-Hochberg FDR < 0.10 in either cohort.**
 
-A defensible working title is:
+This is important because it means the lack of a visible outcome is not an artefact of having selected only toilets, water, electricity, internet, and libraries.
 
-**From Entitlement to Outcomes: What India's Composite School Grant Thresholds Reveal About Funding Transmission and School Facilities**
-
-A sharper alternative is:
-
-**Money Moves, Facilities Do Not: Quasi-Experimental Evidence from India's Composite School Grant Formula**
-
-The second title is punchier but should only be used with the caveat that the RD density test is imperfect.
-
-The central research question should be:
-
-**Does crossing an enrolment-based Composite School Grant threshold increase school-level funding, and does the marginal increase translate into measurable improvements in basic school facilities?**
-
-The answer from the current study is:
-
-**The threshold increases reported funding in the cleanest cohorts, but we do not find a consistent corresponding improvement in basic facility functionality.**
+The new safety fields likewise do not reveal a hidden robust channel.
 
 ---
 
-## What should and should not be claimed
+## Finding 5. We cannot directly identify the line-item destination of CSG expenditure from this microdata extract
 
-### Supported
+The actual all-India UDISE+ microdata schemas were inspected year by year.
 
-- CSG receipt and expenditure respond to the 250-pupil formula threshold in the strongest post-pandemic cohorts.
-- The realized receipt increase is materially smaller than the statutory ₹25,000 step.
-- Most measured WASH, electricity, internet, and library outcomes show no robust positive discontinuity in subsequent change.
-- The evidence points toward a potential implementation or conversion gap between entitlement, receipt, expenditure, and observable facility outcomes.
+For CSG finances, the uploaded extract consistently provides:
 
-### Not supported
+- `grants_receipt`;
+- `grants_expenditure`.
 
-- CSG has no value.
-- The grant causes school conditions to worsen.
-- Every rupee is misused or leaked.
-- The full ₹25,000 entitlement fails to reach schools because the UDISE receipt measure may not map perfectly onto administrative disbursement.
-- The design is a flawless RD. The density diagnostics prevent that claim.
-- The estimates generalize to very small or very large schools far from the threshold.
+It does **not** provide a national school-level line-item breakdown of CSG expenditure into categories such as cleaning, electricity charges, minor repair, teaching aids, consumables, or housekeeping.
+
+Therefore the study can answer:
+
+- whether the threshold changes reported receipt;
+- whether it changes reported expenditure;
+- whether the expenditure difference persists over time;
+- whether observable school conditions subsequently change.
+
+It cannot answer from UDISE alone:
+
+> “Of the additional ₹10,000 spent, ₹X went to cleaning and ₹Y went to minor repair.”
+
+Any such claim would require a different financial source, such as school-level expenditure ledgers or a sufficiently granular Samagra/PRABANDH administrative extract.
+
+---
+
+## Finding 6. What the comprehensive evidence now says
+
+The study no longer supports the simplistic summary “money moves, facilities do not” as a one-year statement.
+
+The stronger version is:
+
+> **The marginal CSG entitlement produces a smaller immediate increase in reported receipt, a persistent and sometimes growing increase in reported expenditure over later UDISE rounds, but no robust corresponding movement in the broad set of physical, administrative, digital, accessibility, WASH, or school-safety outcomes observable in UDISE.**
+
+That creates a much more interesting implementation question:
+
+> **What does additional flexible school funding purchase when aggregate expenditure rises but the administrative outcome system cannot identify a corresponding output?**
+
+There are at least four non-exclusive explanations consistent with the data:
+
+1. CSG is spent on recurring or consumable inputs that UDISE does not measure as stocks;
+2. expenditure maintains existing conditions or prevents deterioration rather than creating new observable assets;
+3. the relevant improvements are too small or too heterogeneous to produce a national local-average discontinuity;
+4. national reporting is too coarse to connect grant expenditure to what schools actually purchase.
+
+The present evidence cannot distinguish these mechanisms conclusively.
+
+---
+
+## Finding 7. This is not evidence of waste, misuse, or no benefit
+
+The estimates are local to schools near 250 pupils. They identify the marginal effect of moving between adjacent grant bands, not the effect of eliminating CSG.
+
+The following statements are **not supported**:
+
+- CSG money is stolen or misused;
+- schools spend the money on nothing;
+- CSG has no value;
+- the grant causes school conditions to worsen;
+- the cumulative expenditure effect proves that the original grant was carried forward unspent.
+
+The supported claim is narrower:
+
+> **At the 250-pupil threshold, reported CSG expenditure increases persistently, but a comprehensive search of UDISE-observed school outcomes does not reveal a robust corresponding output over the horizons available in the data.**
+
+---
+
+## RD validity
+
+The 100-pupil threshold has pronounced bunching and should not be the headline design.
+
+The 250 threshold is cleaner but not immaculate. Density diagnostics still show some non-smoothness in school counts. The later cohorts have more reassuring immediate-cell ratios than the 100 cutoff, and most headline baseline outcomes are reasonably continuous.
+
+The design should therefore be presented as **quasi-experimental evidence around the threshold with explicit density caveats**.
+
+---
+
+## Best paper framing now
+
+A stronger research question than the original facility-only formulation is:
+
+> **What happens to the marginal school grant? Evidence on funding transmission, expenditure persistence, and observable outputs from India's Composite School Grant formula.**
+
+Possible title:
+
+**From Entitlement to Expenditure: What Happens to India's Marginal School Grant?**
+
+A second option:
+
+**Where Does the Marginal School Grant Go? Evidence from India's Composite School Grant Thresholds**
+
+The second title should be understood as an accountability question, not a claim that UDISE can literally trace line-item expenditure.
+
+The empirical contribution is the full chain:
+
+**statutory entitlement → reported receipt → reported expenditure over multiple years → comprehensive observed outcome search**.
+
+The central policy implication is not “cut the grant.” It is that **aggregate grant receipt/expenditure reporting is insufficient for evaluating whether discretionary school funding converts into outputs**. If policymakers want to learn which uses are productive, national administrative systems need either expenditure-purpose coding linked to the school identifier or structured outcome-linked audits that can distinguish maintenance, consumables, utilities, minor repairs, teaching inputs, and other eligible uses.
 
 ---
 
 ## Status
 
-The computational study has been run successfully across all six longitudinal cohorts. The analysis code, schema diagnostics, first-stage checks, density diagnostics, pre-treatment continuity tests, placebo cutoffs, bandwidth variants, and cohort replications are contained in this study folder on the `research/composite-school-grant-study` branch.
+The study now includes:
 
-The next stage is paper production rather than basic discovery: final figures, final tables, a formal methods write-up, and a stricter robustness appendix should be generated from these results before submission.
+- eight UDISE vintages from 2018-19 through 2025-26;
+- six longitudinal cohort replications;
+- government-school sample validation;
+- first-stage receipt and expenditure estimates;
+- density diagnostics;
+- baseline continuity tests;
+- bandwidth and donut variants;
+- multi-year expenditure-persistence analysis;
+- later-enrolment/repeated-treatment diagnostics;
+- a broad common-variable outcome screen with FDR correction;
+- an exhaustive 2025-26 screen including the new school-safety table;
+- explicit verification that the available microdata do not contain CSG line-item expenditure categories.
+
+The discovery stage is now substantially more complete. The next production stage should turn these results into final figures, tables, a concise policy brief, and a robustness appendix without overstating the causal design or the meaning of the null outcome search.
