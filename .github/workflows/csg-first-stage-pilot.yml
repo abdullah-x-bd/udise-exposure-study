@@ -18,11 +18,11 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e .
-      - name: Run 2022-23 enrolment to 2024-25 CSG first stage
+      - name: Run government-school 2022-23 enrolment to 2024-25 CSG first stage
         run: python tools/csg_first_stage_pilot.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: csg-first-stage-pilot
+          name: csg-first-stage-pilot-government
           path: outputs/csg_first_stage_pilot/
           retention-days: 14
