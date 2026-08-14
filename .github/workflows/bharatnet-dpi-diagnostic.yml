@@ -11,6 +11,7 @@ on:
       - "src/udise/bbnl_archive_probe.py"
       - "src/udise/bharatnet_2022_linkage.py"
       - "src/udise/digital_stack_social_exposure.py"
+      - "src/udise/digital_stack_marginal.py"
 
 permissions:
   contents: read
@@ -41,6 +42,8 @@ jobs:
         run: python -m udise.bharatnet_2022_linkage
       - name: Measure social-group exposure to digital bottlenecks
         run: python -m udise.digital_stack_social_exposure
+      - name: Simulate one-input-away digital readiness
+        run: python -m udise.digital_stack_marginal
       - name: Upload diagnostic outputs
         if: always()
         uses: actions/upload-artifact@v4
