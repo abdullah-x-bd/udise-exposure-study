@@ -13,6 +13,25 @@ RESOURCE_URLS = [
     "https://www.data.gov.in/resource/district-wise-service-ready-gram-panchayat-31-01-2024",
     "https://www.data.gov.in/resource/district-wise-service-ready-gram-panchayat-31-12-2023",
 ]
+PUBLIC_API_KEY = "579b464db66ec23bdd0000017d0wnload"
+
+
+def api_probe(resource_id: str) -> list[dict[str, object]]:
+    attempts = []
+    for fmt in ("json", "csv"):
+        url = f"https://api.data.gov.in/resource/{resource_id}?api-key={PUBLIC_API_KEY}&format={fmt}&limit=5"
+        try:
+            response = requests.get(url, timeout=60, headers={"User-Agent": "Mozilla/5.0"})
+            attempts.append({
+                "url": url,
+                "status": response.status_code,
+                "content_type": response.headers.get("content-type"),
+                "length": len(response.content),
+                "preview": response.text[:1000],
+            })
+        except Exception as exc:
+            attempts.append({"url": url, "error": repr(exc)})
+    return attempts
 
 
 def probe(url: str) -> dict[str, object]:
@@ -33,6 +52,7 @@ def probe(url: str) -> dict[str, object]:
     result["candidate_links"] = sorted(set(links))[:200]
     uuids = sorted(set(re.findall(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", text)))
     result["uuids"] = uuids[:50]
+    result["api_attempts"] = {uuid: api_probe(uuid) for uuid in uuids[:10]}
     return result
 
 
