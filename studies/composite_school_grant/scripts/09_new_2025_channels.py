@@ -53,8 +53,20 @@ def main():
         con.execute(f"CREATE TEMP TABLE o AS SELECT CAST({qid(ids[2])} AS VARCHAR) pseudocode,{nref(oc,'managment')} mgmt FROM {op1}")
         con.execute(f"CREATE TEMP TABLE s AS SELECT e.pseudocode,e.enrol,DENSE_RANK() OVER(ORDER BY a.state_key) state FROM e JOIN a USING(pseudocode) JOIN o USING(pseudocode) WHERE a.mgmt IN(1,2,3) AND o.mgmt IN(1,2,3) AND e.enrol BETWEEN {CUTOFF-BW} AND {CUTOFF+BW}")
         n=con.execute('SELECT COUNT(*) FROM s').fetchone()[0];states=con.execute('SELECT COUNT(DISTINCT state) FROM s').fetchone()[0];print('SAMPLE',ay,n,states,flush=True)
+
+        # Materialise the national 2025 tables only for the local RD sample once. This prevents
+        # dozens of repeated full-file scans while leaving the estimand unchanged.
+        sources=[]
+        for family,source,c,idname,tname in [
+            ('facility_2025',fac,fc,ids[3],'m_fac'),
+            ('safety_2025',safety,sc,ids[4],'m_safety'),
+            ('profile1_2025',op1,oc,ids[2],'m_p1'),
+            ('profile2_2025',p2,p2c,ids[5],'m_p2')]:
+            con.execute(f"CREATE TEMP TABLE {tname} AS SELECT r.* FROM {source} r JOIN s ON s.pseudocode=CAST(r.{qid(idname)} AS VARCHAR)")
+            sources.append((family,tname,c,idname))
+
         rows=[]
-        for family,source,c,idname in [('facility_2025',fac,fc,ids[3]),('safety_2025',safety,sc,ids[4]),('profile1_2025',op1,oc,ids[2]),('profile2_2025',p2,p2c,ids[5])]:
+        for family,source,c,idname in sources:
             for name,actual in c.items():
                 if not candidate(name):continue
                 expr=num('r.'+qid(actual))
