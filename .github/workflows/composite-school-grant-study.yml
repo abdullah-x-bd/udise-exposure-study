@@ -31,6 +31,8 @@ jobs:
         run: python studies/composite_school_grant/scripts/01_schema_probe.py
       - name: Profile grant and facility encodings
         run: python studies/composite_school_grant/scripts/02_profile_encodings.py
+      - name: Inspect enrolment coding across vintages
+        run: python studies/composite_school_grant/scripts/02b_enrolment_encodings.py
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
