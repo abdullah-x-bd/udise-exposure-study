@@ -9,6 +9,7 @@ env:
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
   HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
   PYTHONUNBUFFERED: "1"
+  CSG_SCREEN_VERSION: "2-materialized"
 jobs:
   screen:
     strategy:
@@ -30,6 +31,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: csg-new-2025-${{ matrix.assign }}
+          name: csg-new-2025-v2-${{ matrix.assign }}
           path: studies/composite_school_grant/outputs/new_2025_channels/${{ matrix.assign }}_to_2025-26/
           retention-days: 14
