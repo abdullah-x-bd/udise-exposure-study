@@ -1,0 +1,28 @@
+name: CSG focused 2022-23 to 2024-25 study
+on:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths: [".github/workflows/csg-focused-2022-2024.yml"]
+permissions:
+  contents: read
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+jobs:
+  focused-study:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - name: Run focused CSG cohort study
+        run: python tools/csg_focused_2022_2024.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-focused-2022-2024-results
+          path: outputs/csg_focused_2022_2024/
+          retention-days: 14
