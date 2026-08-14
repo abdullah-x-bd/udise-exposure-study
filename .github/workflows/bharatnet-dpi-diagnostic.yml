@@ -10,6 +10,7 @@ on:
       - "src/udise/bharatnet_probe.py"
       - "src/udise/bharatnet_udise_baseline.py"
       - "src/udise/bbnl_archive_probe.py"
+      - "src/udise/bharatnet_2022_linkage.py"
 
 permissions:
   contents: read
@@ -32,12 +33,12 @@ jobs:
         run: python -m pip install -e .
       - name: Inspect private dataset inventory
         run: python -m udise.hf_inventory
-      - name: Probe official BharatNet OGD resources
-        run: python -m udise.bharatnet_probe
       - name: Inspect archived BBNL service-ready data
         run: python -m udise.bbnl_archive_probe
       - name: Build UDISE digital-capability baseline
         run: python -m udise.bharatnet_udise_baseline
+      - name: Link 2022 BharatNet status to 2024-25 UDISE
+        run: python -m udise.bharatnet_2022_linkage
       - name: Upload diagnostic outputs
         if: always()
         uses: actions/upload-artifact@v4
