@@ -18,11 +18,11 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e .
-      - name: Run corrected state-FE focused study
+      - name: Run corrected categorical-state fixed-effect study
         run: python tools/run_csg_focused_corrected.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: csg-focused-corrected-results
-          path: outputs/csg_focused_2022_2024_corrected/
+          name: csg-focused-corrected-v2-results
+          path: outputs/csg_focused_2022_2024_corrected_v2/
           retention-days: 14
