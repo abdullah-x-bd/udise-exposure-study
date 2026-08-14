@@ -1,0 +1,52 @@
+name: CSG dynamic channel screen
+on:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths: [".github/workflows/csg-dynamic-channel-screen.yml"]
+permissions:
+  contents: read
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+jobs:
+  dynamic:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - assign: "2021-22"
+            grant: "2023-24"
+            outcome: "2023-24"
+          - assign: "2021-22"
+            grant: "2023-24"
+            outcome: "2024-25"
+          - assign: "2021-22"
+            grant: "2023-24"
+            outcome: "2025-26"
+          - assign: "2022-23"
+            grant: "2024-25"
+            outcome: "2024-25"
+          - assign: "2022-23"
+            grant: "2024-25"
+            outcome: "2025-26"
+    runs-on: ubuntu-latest
+    env:
+      ASSIGN_YEAR: ${{ matrix.assign }}
+      GRANT_YEAR: ${{ matrix.grant }}
+      OUTCOME_YEAR: ${{ matrix.outcome }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - name: Run broad numeric channel and dynamic persistence screen
+        run: python studies/composite_school_grant/scripts/07_dynamic_channel_screen.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-dynamic-${{ matrix.assign }}-${{ matrix.grant }}-${{ matrix.outcome }}
+          path: studies/composite_school_grant/outputs/dynamic_channels/${{ matrix.assign }}_grant_${{ matrix.grant }}_outcome_${{ matrix.outcome }}/
+          retention-days: 14
