@@ -37,11 +37,11 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e .
-      - name: Run cohort RD
-        run: python studies/composite_school_grant/scripts/06_cohort_rd.py
+      - name: Run corrected cohort RD
+        run: python tools/run_csg_cohort_corrected.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: csg-cohort-${{ matrix.assign }}-to-${{ matrix.outcome }}
-          path: studies/composite_school_grant/outputs/cohorts/${{ matrix.assign }}_to_${{ matrix.outcome }}/
+          name: csg-cohort-corrected-${{ matrix.assign }}-to-${{ matrix.outcome }}
+          path: studies/composite_school_grant/outputs/cohorts_corrected/${{ matrix.assign }}_to_${{ matrix.outcome }}/
           retention-days: 14
