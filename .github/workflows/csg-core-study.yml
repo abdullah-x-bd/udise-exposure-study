@@ -1,0 +1,44 @@
+name: Composite School Grant core study
+
+on:
+  push:
+    branches:
+      - research/composite-school-grant-study
+    paths:
+      - ".github/workflows/csg-core-study.yml"
+
+permissions:
+  contents: read
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  core-study:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install project
+        run: python -m pip install -e .
+      - name: Build harmonized eight-year panel
+        run: python studies/composite_school_grant/scripts/03_build_panel.py
+      - name: Diagnose grant assignment rule and enrolment lag
+        run: python studies/composite_school_grant/scripts/04_assignment_diagnostics.py
+      - name: Run multi-cutoff RD and validity analyses
+        run: python studies/composite_school_grant/scripts/05_rd_analysis.py
+      - name: Upload core results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: composite-school-grant-core-results
+          path: |
+            studies/composite_school_grant/outputs/assignment_diagnostics/
+            studies/composite_school_grant/outputs/rd/
+            studies/composite_school_grant/outputs/panel/panel_manifest.json
+          retention-days: 14
