@@ -33,10 +33,16 @@ jobs:
         run: python studies/composite_school_grant/scripts/02_profile_encodings.py
       - name: Inspect enrolment coding across vintages
         run: python studies/composite_school_grant/scripts/02b_enrolment_encodings.py
+      - name: Build harmonized eight-year panel
+        run: python studies/composite_school_grant/scripts/03_build_panel.py
+      - name: Diagnose grant assignment rule and enrolment lag
+        run: python studies/composite_school_grant/scripts/04_assignment_diagnostics.py
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: composite-school-grant-diagnostics
-          path: studies/composite_school_grant/outputs/
+          path: |
+            studies/composite_school_grant/outputs/
+            !studies/composite_school_grant/outputs/panel/**/*.parquet
           retention-days: 14
