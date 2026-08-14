@@ -17,7 +17,7 @@ env:
   PYTHONUNBUFFERED: "1"
 
 jobs:
-  diagnostics:
+  full-study:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,11 +37,13 @@ jobs:
         run: python studies/composite_school_grant/scripts/03_build_panel.py
       - name: Diagnose grant assignment rule and enrolment lag
         run: python studies/composite_school_grant/scripts/04_assignment_diagnostics.py
-      - name: Upload diagnostics
+      - name: Run multi-cutoff RD, pre-treatment, density, and placebo analyses
+        run: python studies/composite_school_grant/scripts/05_rd_analysis.py
+      - name: Upload study outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: composite-school-grant-diagnostics
+          name: composite-school-grant-full-study
           path: |
             studies/composite_school_grant/outputs/
             !studies/composite_school_grant/outputs/panel/**/*.parquet
