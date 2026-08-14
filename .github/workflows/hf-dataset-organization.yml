@@ -1,0 +1,38 @@
+name: Hugging Face dataset organization
+
+on:
+  push:
+    branches:
+      - research/bharatnet-dpi-study
+    paths:
+      - ".github/workflows/hf-dataset-organization.yml"
+      - "src/udise/hf_dataset_organization.py"
+
+permissions:
+  contents: read
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install project
+        run: python -m pip install -e .
+      - name: Inventory and classify Hugging Face dataset files
+        run: python -m udise.hf_dataset_organization --mode inventory
+      - name: Upload inventory artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hf-dataset-organization-inventory
+          path: outputs/hf_dataset_organization/
+          retention-days: 14
