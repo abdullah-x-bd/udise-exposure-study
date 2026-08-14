@@ -1,0 +1,47 @@
+name: CSG six-cohort replication
+on:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths: [".github/workflows/csg-cohort-replication.yml"]
+permissions:
+  contents: read
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+jobs:
+  cohort:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - assign: "2018-19"
+            outcome: "2020-21"
+          - assign: "2019-20"
+            outcome: "2021-22"
+          - assign: "2020-21"
+            outcome: "2022-23"
+          - assign: "2021-22"
+            outcome: "2023-24"
+          - assign: "2022-23"
+            outcome: "2024-25"
+          - assign: "2023-24"
+            outcome: "2025-26"
+    runs-on: ubuntu-latest
+    env:
+      ASSIGN_YEAR: ${{ matrix.assign }}
+      OUTCOME_YEAR: ${{ matrix.outcome }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - name: Run cohort RD
+        run: python studies/composite_school_grant/scripts/06_cohort_rd.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-cohort-${{ matrix.assign }}-to-${{ matrix.outcome }}
+          path: studies/composite_school_grant/outputs/cohorts/${{ matrix.assign }}_to_${{ matrix.outcome }}/
+          retention-days: 14
