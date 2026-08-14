@@ -8,6 +8,7 @@ on:
       - ".github/workflows/bharatnet-dpi-diagnostic.yml"
       - "src/udise/hf_inventory.py"
       - "src/udise/bharatnet_probe.py"
+      - "src/udise/bharatnet_udise_baseline.py"
 
 permissions:
   contents: read
@@ -32,6 +33,8 @@ jobs:
         run: python -m udise.hf_inventory
       - name: Probe official BharatNet OGD resources
         run: python -m udise.bharatnet_probe
+      - name: Build UDISE digital-capability baseline
+        run: python -m udise.bharatnet_udise_baseline
       - name: Upload diagnostic outputs
         uses: actions/upload-artifact@v4
         with:
