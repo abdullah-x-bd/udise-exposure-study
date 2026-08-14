@@ -1,0 +1,46 @@
+name: CSG financial channels
+on:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths: [".github/workflows/csg-financial-channels.yml"]
+permissions:
+  contents: read
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+jobs:
+  financial:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - assign: "2021-22"
+            obs: "2023-24"
+          - assign: "2021-22"
+            obs: "2024-25"
+          - assign: "2021-22"
+            obs: "2025-26"
+          - assign: "2022-23"
+            obs: "2024-25"
+          - assign: "2022-23"
+            obs: "2025-26"
+    runs-on: ubuntu-latest
+    env:
+      ASSIGN_YEAR: ${{ matrix.assign }}
+      OBS_YEAR: ${{ matrix.obs }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - name: Run financial channel RD
+        run: python studies/composite_school_grant/scripts/08_financial_channel_rd.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-financial-${{ matrix.assign }}-${{ matrix.obs }}
+          path: studies/composite_school_grant/outputs/financial_channels/${{ matrix.assign }}_to_${{ matrix.obs }}/
+          retention-days: 14
