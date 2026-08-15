@@ -12,19 +12,27 @@ on:
 permissions:
   contents: read
 
+# Never leave an obsolete national audit consuming runners after a fix is pushed.
+concurrency:
+  group: csg-full-four-threshold-audit-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
   HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
   PYTHONUNBUFFERED: "1"
 
 jobs:
-  cohort:
-    name: Cohort ${{ matrix.assignment_year }}
+  cohort_threshold:
+    name: ${{ matrix.assignment_year }} · ${{ matrix.threshold }}
     strategy:
       fail-fast: false
+      max-parallel: 16
       matrix:
         assignment_year: ["2019-20", "2020-21", "2021-22", "2022-23"]
+        threshold: ["30_31", "100_101", "250_251", "1000_1001"]
     runs-on: ubuntu-latest
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -35,18 +43,29 @@ jobs:
         run: |
           python -m pip install -e .
           python -m pip install "pandas>=2.2,<3" "scipy>=1.13,<2" "statsmodels>=0.14,<1" "rdrobust>=1.3,<2"
-      - name: Run full threshold cohort audit
+      - name: Run one cohort-threshold audit
         env:
           ASSIGN_YEAR: ${{ matrix.assignment_year }}
+          THRESHOLD_LABEL: ${{ matrix.threshold }}
         run: |
           cat studies/composite_school_grant/full_formula_audit/parts/run_threshold_cohort.* > /tmp/run_threshold_cohort.py
+          # Use the supported nearest-neighbour clustered variance estimator in rdrobust.
           sed -i "s/vce='cr3'/vce='nn'/g; s/rdrobust_cr3/rdrobust_nn_/g" /tmp/run_threshold_cohort.py
+          # The source engine was intentionally written as a four-threshold loop. In CI each
+          # matrix runner handles exactly one threshold, which removes the serial bottleneck.
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/run_threshold_cohort.py')
+          s=p.read_text()
+          s=s.replace('for spec in SCHEDULE:', "for spec in [s for s in SCHEDULE if s['label']==os.environ['THRESHOLD_LABEL']]:")
+          p.write_text(s)
+          PY
           python /tmp/run_threshold_cohort.py
-      - name: Upload aggregate cohort results only
+      - name: Upload aggregate cohort-threshold results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: full-formula-cohort-${{ matrix.assignment_year }}
+          name: full-formula-cohort-${{ matrix.assignment_year }}-${{ matrix.threshold }}
           path: |
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/timing.csv
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/fidelity.csv
@@ -64,6 +83,7 @@ jobs:
   longitudinal:
     name: Longitudinal reliability and manipulation
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -77,6 +97,16 @@ jobs:
       - name: Run longitudinal full-formula audit
         run: |
           cat studies/composite_school_grant/full_formula_audit/parts/run_longitudinal_formula.* > /tmp/run_longitudinal_formula.py
+          # TARGET is parsed specially by current DuckDB. Rename the standalone identifier
+          # consistently in SQL, dataframe columns and report keys before execution.
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('/tmp/run_longitudinal_formula.py')
+          s=p.read_text()
+          s=re.sub(r'\btarget\b', 'entitlement_target', s)
+          p.write_text(s)
+          PY
           python /tmp/run_longitudinal_formula.py
       - name: Upload aggregate longitudinal results only
         if: always()
@@ -98,8 +128,10 @@ jobs:
 
   synthesize:
     name: Synthesize four-threshold audit
-    needs: [cohort, longitudinal]
+    needs: [cohort_threshold, longitudinal]
+    if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -113,7 +145,12 @@ jobs:
           pattern: full-formula-*
           path: inputs
           merge-multiple: false
-      - name: Synthesize all results
+      - name: Inventory inputs
+        run: |
+          echo "Downloaded artifacts:"
+          find inputs -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | sort
+          echo "Artifact count: $(find inputs -maxdepth 1 -mindepth 1 -type d | wc -l)"
+      - name: Synthesize all available results
         env:
           INPUT_ROOT: inputs
         run: |
