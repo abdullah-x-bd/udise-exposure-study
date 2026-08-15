@@ -1,9 +1,9 @@
 from __future__ import annotations
 import csv,json,os,runpy,shutil,tempfile
 from pathlib import Path
-import duckdb, numpy as np, pandas as pd, statsmodels.api as sm
+import duckdb, numpy as np, pandas as pd
 S=runpy.run_path('studies/composite_school_grant/social_equity/run_social_equity.py',run_name='csg_majority_fs_lib')
-YEARS=S['YEARS'];GROUPS=S['GROUPS'];build_composition_year=S['build_composition_year'];load_financial_year=S['load_financial_year'];lit=S['lit'];government_universe=S['government_universe'];BROAD_STATE=S['BROAD_STATE'];cluster_fit=S['cluster_fit']
+YEARS=S['YEARS'];GROUPS=S['GROUPS'];build_composition_year=S['build_composition_year'];load_financial_year=S['load_financial_year'];lit=S['lit'];government_universe=S['government_universe'];BROAD_STATE=S['BROAD_STATE'];cluster_fit=S['cluster_fit'];weighted_demean=S['weighted_demean']
 CUT=250.5;BW=30
 
 def write_csv(path,rows):
@@ -15,13 +15,14 @@ def write_csv(path,rows):
    if k not in ks:ks.append(k)
  with path.open('w',newline='',encoding='utf-8') as f:w=csv.DictWriter(f,fieldnames=ks);w.writeheader();w.writerows(rows)
 
-def rd(d,cluster_col):
+def rd(d,fe_col):
  d=d[np.isfinite(d.receipt)&np.isfinite(d.enrol)&(np.abs(d.enrol-CUT)<=BW)].copy()
- if len(d)<500:return None
- d['T']=(d.enrol>=CUT).astype(float);d['z']=d.enrol-CUT;d['Tz']=d['T']*d['z'];d['y']=(d.receipt>=75000).astype(float);d['w']=np.maximum(0,1-np.abs(d.z)/BW)
- X=d[['T','z','Tz']].to_numpy(float);fit=cluster_fit(X,d.y.to_numpy(float),d.w.to_numpy(float),d[cluster_col].astype(str).to_numpy())
+ if len(d)<500 or d[fe_col].astype(str).nunique()<8:return None
+ d['T']=(d.enrol>=CUT).astype(float);d['z']=d.enrol-CUT;d['Tz']=d['T']*d['z'];d['y']=(d.receipt>=75000).astype(float);d['w']=np.maximum(0,1-np.abs(d.z)/BW);d['fe']=d[fe_col].astype(str)
+ d=weighted_demean(d,['y','T','z','Tz'],'fe','w')
+ X=d[['T','z','Tz']].to_numpy(float);fit=cluster_fit(X,d.y.to_numpy(float),d.w.to_numpy(float),d[fe_col].astype(str).to_numpy())
  if fit is None:return None
- return {'tau':float(fit.params[0]),'se':float(fit.bse[0]),'p':float(fit.pvalues[0]),'ci_low':float(fit.params[0]-1.96*fit.bse[0]),'ci_high':float(fit.params[0]+1.96*fit.bse[0]),'n':int(fit.nobs),'clusters':int(d[cluster_col].astype(str).nunique())}
+ return {'tau':float(fit.params[0]),'se':float(fit.bse[0]),'p':float(fit.pvalues[0]),'ci_low':float(fit.params[0]-1.96*fit.bse[0]),'ci_high':float(fit.params[0]+1.96*fit.bse[0]),'n':int(fit.nobs),'clusters':int(d[fe_col].astype(str).nunique())}
 
 def raw_levels(d):
  out={}
