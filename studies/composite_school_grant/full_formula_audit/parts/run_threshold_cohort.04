@@ -1,0 +1,11 @@
+ssion_ratio' in r else ''
+            lines.append(f"- {r['outcome']}: {val:+.2f}{unit} (p={r['p']:.4g}){extra}")
+        t=[r for r in timing_rows if r['threshold']==spec['label'] and r['universe']=='broad_state']
+        if t:
+            best=max(t,key=lambda r:r['tau']);lines.append(f"- strongest observed lag in 0..4: +{best['lag']} ({100*best['tau']:.2f} pp)")
+        lines.append('')
+    (out/'RESULTS.md').write_text('\n'.join(lines),encoding='utf-8');print('\n'.join(lines),flush=True)
+    con.close()
+
+if __name__=='__main__':
+    main()

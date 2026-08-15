@@ -1,0 +1,113 @@
+(d[cluster_col].astype(str).nunique()) if cluster_col and cluster_col in d else None,
+            'estimator':f'local_linear_{cov}'}
+
+
+def universe_mask(series: pd.Series, codes: set[int]) -> pd.Series:
+    return pd.to_numeric(series,errors='coerce').isin(codes)
+
+
+def pm_safe_mask(df: pd.DataFrame, end: int, variant: str='primary') -> np.ndarray:
+    e8=pd.to_numeric(df.enrol18,errors='coerce').to_numpy(float)
+    if end==30:
+        lim=20 if variant=='primary' else 18
+        return np.isfinite(e8)&(e8<=lim)
+    if end==100:
+        lim=80 if variant=='primary' else 70
+        return np.isfinite(e8)&(e8<=lim)
+    if end==250:
+        lim=220 if variant=='primary' else 200
+        return np.isfinite(e8)&(e8<=lim)
+    # For the 1000 boundary, keep I-VIII enrolment away from every PM POSHAN 100-pupil step.
+    finite=np.isfinite(e8); dist=np.full(len(e8),np.inf)
+    for k in range(100,1101,100): dist=np.minimum(dist,np.abs(e8-k))
+    gap=20 if variant=='primary' else 30
+    return finite&(dist>gap)
+
+
+def generalized_social_interaction(df: pd.DataFrame, share_col: str, cutoff: float, bw: float, target: float) -> dict | None:
+    d=df.copy(); d=d[np.isfinite(d.receipt)&np.isfinite(d[share_col])&np.isfinite(d.enrol)]
+    d=d[np.abs(d.enrol-cutoff)<=bw].copy()
+    if len(d)<1000: return None
+    d['T']=(d.enrol>=cutoff).astype(float); d['z']=d.enrol-cutoff; d['w']=np.maximum(0,1-np.abs(d.z)/bw); d['S']=d[share_col].astype(float)
+    d['Tz']=d['T']*d['z']; d['TS']=d['T']*d['S']; d['zS']=d['z']*d['S']; d['TzS']=d['T']*d['z']*d['S']; d['y']=(d.receipt>=target).astype(float)
+    d['fe']=d.state.astype(str)+'|'+d.district.astype(str)+'|'+d.assignment_year.astype(str)
+    cols=['y','T','z','Tz','S','TS','zS','TzS']
+    for base in ('rural_urban','school_category','management'):
+        vals=pd.to_numeric(d[base],errors='coerce').fillna(-999).astype(int); cats=sorted(vals.unique())
+        for c in cats[1:]:
+            name=f'cv_{base}_{c}'; d[name]=(vals==c).astype(float); cols.append(name)
+    # weighted demean by district x cohort fixed effect
+    w=d.w.to_numpy(float)
+    for col in cols:
+        x=d[col].to_numpy(float)
+        wx=pd.Series(w*x,index=d.index).groupby(d.fe).transform('sum').to_numpy(float)
+        sw=pd.Series(w,index=d.index).groupby(d.fe).transform('sum').to_numpy(float)
+        d[col]=x-np.divide(wx,sw,out=np.zeros_like(wx),where=sw>0)
+    Xcols=['T','z','Tz','S','TS','zS','TzS']+[c for c in cols if c.startswith('cv_')]
+    X=d[Xcols].to_numpy(float); y=d.y.to_numpy(float); w=d.w.to_numpy(float); clusters=d.state.astype(str).to_numpy()
+    keep=np.isfinite(y)&np.isfinite(w)&(w>0)&np.all(np.isfinite(X),axis=1)
+    X=X[keep];y=y[keep];w=w[keep];clusters=clusters[keep]
+    if len(y)<800 or len(pd.unique(clusters))<8:return None
+    fit=sm.WLS(y,X,weights=w).fit(cov_type='cluster',cov_kwds={'groups':clusters,'use_correction':True})
+    j=Xcols.index('TS'); coef=float(fit.params[j]);se=float(fit.bse[j]);p=float(fit.pvalues[j])
+    return {'n':int(fit.nobs),'clusters':int(len(pd.unique(clusters))),'interaction_per_10pp':coef*.1,
+            'se_per_10pp':se*.1,'p':p,'ci_low_per_10pp':(coef-1.96*se)*.1,'ci_high_per_10pp':(coef+1.96*se)*.1,
+            'fe':'district_year','adjusted':True}
+
+
+def balance_jump(df: pd.DataFrame, col: str, cutoff: float, bw: float) -> dict | None:
+    z=df[np.isfinite(df[col])&np.isfinite(df.enrol)].copy(); z=z[np.abs(z.enrol-cutoff)<=bw]
+    if len(z)<500:return None
+    z['T']=(z.enrol>=cutoff).astype(float);z['x']=z.enrol-cutoff;z['Tx']=z['T']*z['x'];z['w']=np.maximum(0,1-np.abs(z.x)/bw)
+    X=np.c_[np.ones(len(z)),z['T'],z['x'],z['Tx']];y=z[col].to_numpy(float);w=z.w.to_numpy(float)
+    fit=sm.WLS(y,X,weights=w).fit(cov_type='cluster',cov_kwds={'groups':z.state.astype(str).to_numpy(),'use_correction':True}) if z.state.astype(str).nunique()>=8 else sm.WLS(y,X,weights=w).fit(cov_type='HC3')
+    return {'tau':float(fit.params[1]),'se':float(fit.bse[1]),'p':float(fit.pvalues[1]),'n':int(fit.nobs)}
+
+
+def asset_transition(base: pd.DataFrame, future: pd.DataFrame) -> pd.DataFrame:
+    d=base.merge(future,on='pseudocode',how='left',suffixes=('_b','_o'))
+    deterioration=[];upgrade=[]
+    for _,r in d.iterrows():
+        a=[];b=[]
+        for k in ASSETS:
+            bv=r.get(k+'_b');ov=r.get(k+'_o')
+            if pd.isna(bv) or pd.isna(ov): continue
+            if bv>=.5:a.append(1.0 if ov<.5 else 0.0)
+            else:b.append(1.0 if ov>=.5 else 0.0)
+        deterioration.append(np.mean(a) if a else np.nan);upgrade.append(np.mean(b) if b else np.nan)
+    return pd.DataFrame({'pseudocode':d.pseudocode,'deterioration':deterioration,'upgrade':upgrade})
+
+
+def fuzzy_fit(y,x,treat,state,cutoff,bw,fuzzy=False):
+    y=np.asarray(y,float);x=np.asarray(x,float);treat=np.asarray(treat,float);st=pd.Series(state,dtype='object')
+    m=np.isfinite(y)&np.isfinite(x)&np.isfinite(treat)&st.notna().to_numpy()&(np.abs(x-cutoff)<=bw)
+    y=y[m];x=x[m];treat=treat[m];st=st.to_numpy()[m]
+    if len(y)<400 or pd.Series(st).nunique()<8:return None
+    kw=dict(y=y,x=x,c=cutoff,p=1,q=2,kernel='tri',h=bw,b=max(bw*1.5,bw+5),cluster=pd.Categorical(st).codes,vce='cr3',masspoints='adjust',bwcheck=max(5,min(20,int(round(bw/2)))))
+    if fuzzy:kw['fuzzy']=treat
+    try:
+        r=rdrobust(**kw);ci=pull_last(r,'ci');return {'tau':pull_last(r,'coef'),'se':pull_last(r,'se'),'p':pull_last(r,'pv'),'ci_low':ci[0],'ci_high':ci[1],'n':len(y)}
+    except Exception as e:return {'error':repr(e),'n':len(y)}
+
+
+def main() -> None:
+    ay=os.environ['ASSIGN_YEAR']; ai=YEARS.index(ay); repo=os.environ['HF_DATASET_REPO'];token=os.environ['HF_TOKEN']
+    prev=YEARS[ai-1] if ai>0 else None; correct_report=YEARS[ai+3]; grant_fy=YEARS[ai+2]
+    out=Path(f'studies/composite_school_grant/outputs/full_formula_audit/cohort_{ay}');shutil.rmtree(out,ignore_errors=True);out.mkdir(parents=True)
+    con=duckdb.connect();con.execute('PRAGMA threads=4');con.execute("PRAGMA memory_limit='10GB'")
+    timing_rows=[];fidelity_rows=[];bandwidth_rows=[];state_rows=[];social_rows=[];balance_rows=[];fuzzy_rows=[];raw_rates=[];stack_parts=[];validation={}
+    with tempfile.TemporaryDirectory(prefix=f'full_formula_{ay}_') as td:
+        root=Path(td)
+        comp,diag=build_composition_year(con,repo,token,ay,root,out);validation['assignment_composition']=diag
+        pcomp,pdiag=build_composition_year(con,repo,token,prev,root,out);validation['previous_composition']=pdiag
+        e8p=build_e8_year(con,repo,token,ay,root,out)
+        finance={}
+        for lag in range(0,5):
+            if ai+lag<len(YEARS): finance[lag]=load_financial_year(con,repo,token,YEARS[ai+lag],root,out)
+        abase=build_asset_year(con,repo,token,ay,root,out)
+        future_assets={}
+        for oi in range(ai+3,len(YEARS)):
+            oy=YEARS[oi];future_assets[oy]=build_asset_year(con,repo,token,oy,root,out)
+
+        prev_cols=','.join(f'p.{g}_share AS prev_{g}_share' for g in GROUPS)
+        # Local samples are materialized only

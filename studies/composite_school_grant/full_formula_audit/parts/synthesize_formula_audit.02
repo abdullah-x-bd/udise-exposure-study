@@ -1,0 +1,3 @@
+sh delivery. Below-target records therefore cannot be called funding denial without payment-ledger linkage.']
+(OUT/'FULL_FOUR_THRESHOLD_AUDIT.md').write_text('\n'.join(lines),encoding='utf-8')
+print('\n'.join(lines))

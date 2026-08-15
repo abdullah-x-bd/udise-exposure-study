@@ -39,7 +39,7 @@ jobs:
         env:
           ASSIGN_YEAR: ${{ matrix.assignment_year }}
         run: |
-          gzip -dc studies/composite_school_grant/full_formula_audit/run_threshold_cohort.py.gz > /tmp/run_threshold_cohort.py
+          cat studies/composite_school_grant/full_formula_audit/parts/run_threshold_cohort.* > /tmp/run_threshold_cohort.py
           python /tmp/run_threshold_cohort.py
       - name: Upload aggregate cohort results only
         if: always()
@@ -52,10 +52,10 @@ jobs:
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/bandwidth_sensitivity.csv
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/state_response.csv
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/social_heterogeneity.csv
-            studies/composite_schoool_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/predetermined_balance.csv
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/predetermined_balance.csv
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/fuzzy_facility.csv
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/raw_local_rates.csv
-            studies/composite_schoool_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/stacked_formula.csv
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/stacked_formula.csv
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/validation.json
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/RESULTS.md
           retention-days: 14
@@ -75,7 +75,7 @@ jobs:
           python -m pip install "pandas>=2.2,<3" "scipy>=1.13,<2" "statsmodels>=0.14,<1" "rdrobust>=1.3,<2"
       - name: Run longitudinal full-formula audit
         run: |
-          gzip -dc studies/composite_school_grant/full_formula_audit/run_longitudinal_formula.py.gz > /tmp/run_longitudinal_formula.py
+          cat studies/composite_school_grant/full_formula_audit/parts/run_longitudinal_formula.* > /tmp/run_longitudinal_formula.py
           python /tmp/run_longitudinal_formula.py
       - name: Upload aggregate longitudinal results only
         if: always()
@@ -116,7 +116,7 @@ jobs:
         env:
           INPUT_ROOT: inputs
         run: |
-          gzip -dc studies/composite_school_grant/full_formula_audit/synthesize_formula_audit.py.gz > /tmp/synthesize_formula_audit.py
+          cat studies/composite_school_grant/full_formula_audit/parts/synthesize_formula_audit.* > /tmp/synthesize_formula_audit.py
           python /tmp/synthesize_formula_audit.py
       - name: Upload definitive aggregate audit
         uses: actions/upload-artifact@v4

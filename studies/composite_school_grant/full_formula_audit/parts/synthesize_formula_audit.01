@@ -1,0 +1,90 @@
+,'q_bh']=multipletests(social_meta.loc[idx,'p'],method='fdr_bh')[1]
+write('social_heterogeneity_meta.csv',social_meta)
+
+# Balance family audit.
+balance_meta=[]
+if len(balance):
+    for (th,gname),g in balance.groupby(['threshold','group']):
+        r=ivw(g);balance_meta.append({'threshold':th,'group':gname,**r})
+balance_meta=pd.DataFrame(balance_meta);write('predetermined_balance_meta.csv',balance_meta)
+
+# Fuzzy outcome summary only; no positive headline fishing.
+fuzzy_sum=[]
+if len(fuzzy):
+    z=fuzzy[(fuzzy.estimand=='fuzzy_RD_reported_high_receipt')&(fuzzy['sample']=='all')]
+    for (th,outcome),g in z.groupby(['threshold','outcome']):
+        r=ivw(g);fuzzy_sum.append({'threshold':th,'outcome':outcome,**r})
+fuzzy_sum=pd.DataFrame(fuzzy_sum);write('fuzzy_facility_meta.csv',fuzzy_sum)
+
+# Density true vs placebo percentile by threshold-year and averaged.
+density_summary=[]
+if len(density):
+    for (year,th),g in density.groupby(['academic_year','threshold_label']):
+        tr=g[g.kind=='true'];pl=g[g.kind=='placebo']
+        if not len(tr):continue
+        v=float(tr.iloc[0].heaping_adjusted_asymmetry);pct=float((pl.heaping_adjusted_asymmetry<=v).mean()) if len(pl) else np.nan
+        density_summary.append({'academic_year':year,'threshold':th,'asymmetry':v,'placebo_percentile':pct,'n_placebos':len(pl)})
+density_summary=pd.DataFrame(density_summary);write('density_true_summary.csv',density_summary)
+
+# Write longitudinal inputs through for convenience.
+for nm,df in [('stable_entitlement_pairs.csv',stable),('persistent_mismatch.csv',persistent),('cycle_fidelity_by_band.csv',cycle),('minimal_crossing_summary.csv',cross)]:write(nm,df)
+
+# Figures.
+if len(headline):
+    fig,ax=plt.subplots(figsize=(10,5))
+    for ay,g in headline.groupby('assignment_year'):
+        gg=g.set_index('threshold').reindex(THRESHOLDS);ax.plot([LABEL[t] for t in THRESHOLDS],gg.first_stage_pp,marker='o',label=ay)
+    ax.axhline(0,linewidth=.8);ax.set_ylabel('Jump in P(recorded receipt ≥ new band), pp');ax.set_xlabel('Statutory CSG boundary');ax.set_title('The full CSG formula fingerprint across four cohorts');ax.legend(title='Assignment enrolment');fig.tight_layout();fig.savefig(OUT/'figure_formula_fingerprint.png',dpi=200);plt.close(fig)
+
+    tr=headline.groupby('threshold').agg(receipt=('receipt_jump_transmission_ratio','mean'),expenditure=('expenditure_jump_transmission_ratio','mean')).reindex(THRESHOLDS)
+    fig,ax=plt.subplots(figsize=(9,5));x=np.arange(len(tr));w=.35;ax.bar(x-w/2,tr.receipt,w,label='Recorded receipt');ax.bar(x+w/2,tr.expenditure,w,label='Recorded expenditure');ax.axhline(1,linestyle='--',linewidth=1);ax.set_xticks(x,[LABEL[t] for t in tr.index]);ax.set_ylabel('Recorded discontinuity / nominal statutory jump');ax.set_title('Recorded formula transmission ratio');ax.legend();fig.tight_layout();fig.savefig(OUT/'figure_transmission_ratio.png',dpi=200);plt.close(fig)
+
+if len(state_typ):
+    s=state_typ[state_typ.threshold=='250_251'].dropna(subset=['n80_lag','strength_t3_pp'])
+    if len(s):
+        fig,ax=plt.subplots(figsize=(10,7));ax.scatter(s.n80_lag,s.strength_t3_pp,s=35)
+        for _,r in s.iterrows():
+            if r.strength_t3_pp>=25 or r.n80_lag>=3.5:ax.annotate(str(r.state),(r.n80_lag,r.strength_t3_pp),fontsize=7,xytext=(3,3),textcoords='offset points')
+        ax.set_xlabel('Administrative latency N80, UDISE rounds');ax.set_ylabel('Mean T+3 formula response, pp');ax.set_title('State implementation: speed × strength at 250/251');fig.tight_layout();fig.savefig(OUT/'figure_state_speed_strength_250.png',dpi=200);plt.close(fig)
+
+if len(persistent):
+    p=persistent.copy();p['label']=p.target.map(lambda x:f'₹{int(x/1000)}k')
+    fig,ax=plt.subplots(figsize=(9,5));x=np.arange(len(p));ax.bar(x,100*p.p_never_meets);ax.set_xticks(x,p.label);ax.set_ylabel('% never meeting recorded nominal target');ax.set_title('Persistent recorded mismatch among schools with stable entitlement (≥3 cycles)');fig.tight_layout();fig.savefig(OUT/'figure_persistent_mismatch.png',dpi=200);plt.close(fig)
+
+# Human-readable report.
+lines=['# Full Four-Threshold Composite School Grant Audit','',
+'## Executive result','']
+if len(meta):
+    m=meta[meta.outcome=='receipt_atleast_upper'].set_index('threshold')
+    for th in THRESHOLDS:
+        if th in m.index:
+            r=m.loc[th];lines.append(f"- {LABEL[th]}: pooled recorded high-band first stage {100*r.tau:+.2f} pp (95% CI {100*r.ci_low:+.2f} to {100*r.ci_high:+.2f}; {int(r.k)} cohorts).")
+if stack_meta:
+    lines+=['',f"Across thresholds, the cohort-level stacked formula fingerprint meta-estimate is {100*stack_meta.get('tau',float('nan')):+.2f} pp (95% CI {100*stack_meta.get('ci_low',float('nan')):+.2f} to {100*stack_meta.get('ci_high',float('nan')):+.2f})."]
+lines+=['','## Recorded rupee transmission','']
+if len(meta):
+    for th in THRESHOLDS:
+        a=meta[(meta.threshold==th)&(meta.outcome=='receipt_w99')];b=meta[(meta.threshold==th)&(meta.outcome=='expenditure_w99')]
+        if len(a):
+            rr=a.iloc[0];ee=b.iloc[0] if len(b) else None
+            lines.append(f"- {LABEL[th]}: recorded receipt discontinuity Rs {rr.tau:+,.0f} ({rr.transmission_ratio:.2f} of nominal jump)"+(f"; expenditure Rs {ee.tau:+,.0f} ({ee.transmission_ratio:.2f})." if ee is not None else '.'))
+lines+=['','## Administrative timing','']
+if len(timing_summary):
+    for th in THRESHOLDS:
+        g=timing_summary[timing_summary.threshold==th]
+        if len(g):
+            vc=g.best_lag.value_counts();lines.append(f"- {LABEL[th]}: modal strongest lag +{int(vc.index[0])} in {int(vc.iloc[0])}/{len(g)} cohorts.")
+lines+=['','## Stable entitlement and persistence','']
+if len(persistent):
+    for _,r in persistent.iterrows():lines.append(f"- Nominal Rs {int(r.target):,}: among schools staying in this band for >=3 cycles, {100*r.p_never_meets:.2f}% never meet the target in the UDISE record and {100*r.p_below_at_least_2_cycles:.2f}% are below it in at least two cycles.")
+lines+=['','## Manipulation falsification','']
+if len(cross):
+    for th in THRESHOLDS:
+        a=cross[(cross.threshold_label==th)&(cross.metric=='p_land_exact_first_above')]
+        if len(a):lines.append(f"- {LABEL[th]}: exact-first-above landing differs from matched placebos by {100*a.iloc[0].mean_true_minus_placebo:+.3f} pp on average.")
+lines+=['','## Interpretation guardrails','',
+'- The four boundaries are valid for auditing the administrative formula fingerprint. They are not equally clean CSG-only outcome experiments.',
+'- The 250/251 boundary remains the strongest quasi-experimental CSG benchmark after the PM POSHAN-safe restriction.',
+'- 100/101 and 1000/1001 overlap other enrolment-linked PM POSHAN rules; downstream outcome effects there cannot automatically be attributed solely to CSG.',
+'- The <=30 Rs 10,000 band requires cohort-specific historical verification before older-cohort causal interpretation.',
+'- UDISE grant receipt is an administrative report, not independently audited PFMS ca

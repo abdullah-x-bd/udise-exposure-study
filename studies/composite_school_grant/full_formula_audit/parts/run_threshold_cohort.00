@@ -1,0 +1,153 @@
+from __future__ import annotations
+
+import csv
+import json
+import math
+import os
+import runpy
+import shutil
+import tempfile
+from pathlib import Path
+
+import duckdb
+import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+from rdrobust import rdrobust
+from statsmodels.stats.multitest import multipletests
+
+P = runpy.run_path('studies/composite_school_grant/scripts/03_build_panel.py', run_name='full_formula_panel_lib')
+S = runpy.run_path('studies/composite_school_grant/social_equity/run_social_equity.py', run_name='full_formula_social_lib')
+CF = runpy.run_path('studies/composite_school_grant/confirmatory_experiments/run_confirmatory.py', run_name='full_formula_confirm_lib')
+
+YEARS = P['YEARS']
+extract_archive = P['extract_archive']
+csv_source = P['csv_source']
+source_columns = P['source_columns']
+qid = P['qid']
+lit = P['lit']
+ref = P['ref']
+nref = P['nref']
+
+build_composition_year = S['build_composition_year']
+load_financial_year = S['load_financial_year']
+GROUPS = S['GROUPS']
+UNIVERSES = S['UNIVERSES']
+BROAD_STATE = S['BROAD_STATE']
+CORE_STATE_LOCAL = S['CORE_STATE_LOCAL']
+ALL_UDISE_GOVERNMENT = S['ALL_UDISE_GOVERNMENT']
+component_exprs = CF['component_exprs']
+total_enrolment_setup = CF['total_enrolment_setup']
+
+ASSETS = [
+    'water_functional', 'handwash_meal', 'electricity', 'internet', 'library',
+    'ramps', 'handrails', 'girls_toilet_full', 'boys_toilet_full',
+]
+
+# end_of_lower_band, lower target, upper target, canonical bandwidth
+SCHEDULE = [
+    {'label':'30_31', 'end':30, 'lower':10000, 'upper':25000, 'jump':15000, 'bw':10,
+     'interpretation':'administrative_formula; historical rule must be verified cohort-by-cohort; PM POSHAN 25/26 is nearby'},
+    {'label':'100_101', 'end':100, 'lower':25000, 'upper':50000, 'jump':25000, 'bw':20,
+     'interpretation':'administrative_formula; downstream causal CSG interpretation confounded by PM POSHAN rules at 100/101'},
+    {'label':'250_251', 'end':250, 'lower':50000, 'upper':75000, 'jump':25000, 'bw':30,
+     'interpretation':'primary quasi-experimental CSG boundary; PM POSHAN overlap tested with Classes I-VIII restrictions'},
+    {'label':'1000_1001', 'end':1000, 'lower':75000, 'upper':100000, 'jump':25000, 'bw':100,
+     'interpretation':'administrative_formula; sparse upper tail and PM POSHAN 100-pupil increment rules limit downstream causal interpretation'},
+]
+
+
+def write_csv(path: Path, rows: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not rows:
+        path.write_text('', encoding='utf-8')
+        return
+    keys=[]
+    for r in rows:
+        for k in r:
+            if k not in keys: keys.append(k)
+    with path.open('w', newline='', encoding='utf-8') as f:
+        w=csv.DictWriter(f, fieldnames=keys); w.writeheader(); w.writerows(rows)
+
+
+def school_id(cols: dict[str,str]) -> str:
+    x=cols.get('pseudocode') or cols.get('psuedocode')
+    if not x: raise RuntimeError('school identifier missing')
+    return x
+
+
+def e8_expr(cols: dict[str,str]) -> str:
+    terms=[f"COALESCE({nref(cols,f'c{k}_{s}')},0)" for k in range(1,9) for s in ('b','g') if f'c{k}_{s}' in cols]
+    if not terms: raise RuntimeError('Classes I-VIII columns missing')
+    return ' + '.join(terms)
+
+
+def build_e8_year(con, repo, token, year, work: Path, outdir: Path) -> Path:
+    en = csv_source(extract_archive(repo, token, year, 'enrolment_1', work))
+    ec = source_columns(con, en); sid=school_id(ec)
+    total_expr, filt, _ = total_enrolment_setup(con, en, ec)
+    e8=e8_expr(ec)
+    p=outdir/'aux'/f'e8_{year}.parquet'; p.parent.mkdir(parents=True, exist_ok=True)
+    con.execute(f"""
+      COPY (
+        SELECT CAST({qid(sid)} AS VARCHAR) pseudocode,
+               SUM({total_expr}) enrol_check,
+               SUM({e8}) enrol18
+        FROM {en} WHERE {filt} GROUP BY 1
+      ) TO {lit(str(p))} (FORMAT PARQUET, COMPRESSION ZSTD)
+    """)
+    return p
+
+
+def build_asset_year(con, repo, token, year, work: Path, outdir: Path) -> Path:
+    fac=csv_source(extract_archive(repo, token, year, 'facility', work))
+    fc=source_columns(con,fac); fid=school_id(fc); ce=component_exprs(fc,'f')
+    sel=','.join(f'{v} AS {k}' for k,v in ce.items() if k in ASSETS)
+    p=outdir/'assets'/f'{year}.parquet'; p.parent.mkdir(parents=True, exist_ok=True)
+    con.execute(f"COPY (SELECT CAST(f.{qid(fid)} AS VARCHAR) pseudocode,{sel} FROM {fac} f) TO {lit(str(p))} (FORMAT PARQUET,COMPRESSION ZSTD)")
+    return p
+
+
+def normal_p(t: float) -> float:
+    return math.erfc(abs(float(t))/math.sqrt(2))
+
+
+def pull_last(r, attr):
+    a=np.asarray(getattr(r,attr),dtype=float)
+    if attr=='ci': return a.reshape(-1,2)[-1].tolist()
+    return float(a.reshape(-1)[-1])
+
+
+def fit_rdrobust(y, x, state, cutoff, bw) -> dict | None:
+    y=np.asarray(y,float); x=np.asarray(x,float); st=pd.Series(state,dtype='object')
+    m=np.isfinite(y)&np.isfinite(x)&st.notna().to_numpy()&(np.abs(x-cutoff)<=bw)
+    y=y[m]; x=x[m]; st=st.to_numpy()[m]
+    if len(y)<250 or (x<cutoff).sum()<70 or (x>=cutoff).sum()<70 or pd.Series(st).nunique()<8: return None
+    try:
+        r=rdrobust(y=y,x=x,c=cutoff,p=1,q=2,kernel='tri',h=bw,b=max(bw*1.5,bw+5),
+                   cluster=pd.Categorical(st).codes,vce='cr3',masspoints='adjust',bwcheck=max(5,min(20,int(round(bw/2)))))
+        ci=pull_last(r,'ci')
+        return {'tau':pull_last(r,'coef'),'se':pull_last(r,'se'),'p':pull_last(r,'pv'),
+                'ci_low':ci[0],'ci_high':ci[1],'n':len(y),'n_left':int((x<cutoff).sum()),
+                'n_right':int((x>=cutoff).sum()),'clusters':int(pd.Series(st).nunique()),'estimator':'rdrobust_cr3'}
+    except Exception as e:
+        return {'error':repr(e),'n':len(y),'estimator':'rdrobust_cr3'}
+
+
+def fit_local(df: pd.DataFrame, ycol: str, cutoff: float, bw: float, cluster_col: str | None='state') -> dict | None:
+    d=df.copy()
+    d=d[np.isfinite(pd.to_numeric(d[ycol],errors='coerce')) & np.isfinite(pd.to_numeric(d.enrol,errors='coerce'))]
+    d=d[np.abs(d.enrol-cutoff)<=bw].copy()
+    if len(d)<120 or (d.enrol<cutoff).sum()<35 or (d.enrol>=cutoff).sum()<35: return None
+    d['T']=(d.enrol>=cutoff).astype(float); d['z']=d.enrol-cutoff; d['Tz']=d['T']*d['z']; d['w']=np.maximum(0,1-np.abs(d.z)/bw)
+    X=np.c_[np.ones(len(d)),d['T'].to_numpy(float),d['z'].to_numpy(float),d['Tz'].to_numpy(float)]
+    y=d[ycol].to_numpy(float); model=sm.WLS(y,X,weights=d.w.to_numpy(float))
+    if cluster_col and cluster_col in d and d[cluster_col].notna().sum()>0 and d[cluster_col].astype(str).nunique()>=8:
+        fit=model.fit(cov_type='cluster',cov_kwds={'groups':d[cluster_col].astype(str).to_numpy(),'use_correction':True})
+        cov=f'cluster_{cluster_col}'
+    else:
+        fit=model.fit(cov_type='HC3'); cov='HC3'
+    tau=float(fit.params[1]); se=float(fit.bse[1]); p=float(fit.pvalues[1])
+    return {'tau':tau,'se':se,'p':p,'ci_low':tau-1.96*se,'ci_high':tau+1.96*se,
+            'n':int(fit.nobs),'n_left':int((d.enrol<cutoff).sum()),'n_right':int((d.enrol>=cutoff).sum()),
+            'clusters':int

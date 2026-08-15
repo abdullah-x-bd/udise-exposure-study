@@ -1,0 +1,75 @@
+:target,'n':len(g),
+                    'receipt_positive':float(np.nanmean(g.receipt.to_numpy(float)>0)) if len(g) else None,
+                    'receipt_atleast_target':float(np.nanmean(g.receipt.to_numpy(float)>=target)) if len(g) else None,
+                    'receipt_exact_target':float(np.nanmean(np.isclose(g.receipt.to_numpy(float),target))) if len(g) else None,
+                    'mean_receipt_w99':float(np.nanmean(np.minimum(g.receipt.to_numpy(float),np.nanquantile(g.receipt.to_numpy(float),.99)))) if len(g) and np.isfinite(g.receipt).sum()>20 else None})
+            zb['y']=(zb.receipt>=upper).astype(float)
+            for state,g in zb.groupby('state',dropna=True):
+                est=fit_local(g,'y',cutoff,bw,'district')
+                if est:state_rows.append({'assignment_year':ay,'lag':3,'outcome_year':correct_report,'threshold':spec['label'],'state':state,'metric':'first_stage_receipt_atleast_target_canonical',**est})
+                rr=g[g.enrol>=cutoff];ll=g[g.enrol<cutoff]
+                if len(rr)>=20:
+                    state_rows.append({'assignment_year':ay,'lag':3,'outcome_year':correct_report,'threshold':spec['label'],'state':state,'metric':'right_side_absolute_fidelity',
+                        'n':len(rr),'value':float(np.nanmean(rr.receipt.to_numpy(float)>=upper)),'exact_value':float(np.nanmean(np.isclose(rr.receipt.to_numpy(float),upper)))})
+
+            # Predetermined composition balance and heterogeneity at +3.
+            for g in GROUPS:
+                col=f'prev_{g}_share'
+                bal=balance_jump(zb,col,cutoff,bw)
+                if bal:balance_rows.append({'assignment_year':ay,'threshold':spec['label'],'group':g,**bal})
+                h=generalized_social_interaction(zb,col,cutoff,bw,upper)
+                if h:social_rows.append({'assignment_year':ay,'threshold':spec['label'],'group':g,'composition_source':'predetermined_previous_year',**h})
+
+            # Fuzzy-RD facility sensitivity using correctly timed reported high-band receipt as endogenous administrative treatment.
+            base_assets=con.execute(f"SELECT * FROM read_parquet({lit(str(abase))})").df()
+            base_local=zb[['pseudocode','enrol','state','management','enrol18','receipt']].merge(base_assets,on='pseudocode',how='left')
+            for oy,op in future_assets.items():
+                fut=con.execute(f"SELECT * FROM read_parquet({lit(str(op))})").df();tr=asset_transition(base_local[['pseudocode']+ASSETS],fut)
+                zz=base_local.merge(tr,on='pseudocode',how='left');t=np.where(np.isfinite(zz.receipt),(zz.receipt>=upper).astype(float),np.nan)
+                for sample,mask in [('all',np.ones(len(zz),bool)),('pm_safe_primary',pm_safe_mask(zz,end,'primary'))]:
+                    szz=zz.loc[mask];tt=t[mask];x=szz.enrol.to_numpy(float);st=szz.state.to_numpy(dtype=object)
+                    for outcome in ('deterioration','upgrade'):
+                        yy=szz[outcome].to_numpy(float);m=np.isfinite(yy)&np.isfinite(tt)
+                        if m.sum()<300:continue
+                        fs=fuzzy_fit(tt[m],x[m],tt[m],st[m],cutoff,bw,False);rf=fuzzy_fit(yy[m],x[m],tt[m],st[m],cutoff,bw,False);fr=fuzzy_fit(yy[m],x[m],tt[m],st[m],cutoff,bw,True)
+                        common={'assignment_year':ay,'threshold':spec['label'],'report_year':correct_report,'outcome_year':oy,'sample':sample,'outcome':outcome}
+                        if fs and 'tau' in fs:fuzzy_rows.append({**common,'estimand':'first_stage_reported_high_receipt',**fs})
+                        if rf and 'tau' in rf:fuzzy_rows.append({**common,'estimand':'reduced_form_threshold',**rf})
+                        if fr and 'tau' in fr:fuzzy_rows.append({**common,'estimand':'fuzzy_RD_reported_high_receipt',**fr})
+            print('DONE THRESHOLD',ay,spec['label'],flush=True)
+
+    # Family corrections within cohort x threshold across social groups / balance variables.
+    for rows,key in [(social_rows,'p'),(balance_rows,'p')]:
+        for thr in sorted(set(r['threshold'] for r in rows)):
+            idx=[i for i,r in enumerate(rows) if r['threshold']==thr and r.get(key) is not None and np.isfinite(r[key])]
+            if idx:
+                q=multipletests([rows[i][key] for i in idx],method='fdr_bh')[1]
+                for i,v in zip(idx,q):rows[i]['q_bh']=float(v)
+
+    stacked_rows=[]
+    if stack_parts:
+        sd=pd.concat(stack_parts,ignore_index=True).dropna(subset=['y_stack','state'])
+        # Common discontinuity with cutoff-specific intercepts and smooth slopes.
+        th=pd.get_dummies(sd['threshold'],prefix='thr',drop_first=True,dtype=float)
+        Xparts=[pd.Series(1.0,index=sd.index,name='const'),sd['T'].astype(float),sd['z_scaled'].astype(float),(sd['T']*sd['z_scaled']).rename('Tz')]
+        for c in th.columns:
+            Xparts.append(th[c].rename(c));Xparts.append((th[c]*sd['z_scaled']).rename(c+'_z'));Xparts.append((th[c]*sd['T']*sd['z_scaled']).rename(c+'_Tz'))
+        X=pd.concat(Xparts,axis=1).to_numpy(float);y=sd.y_stack.to_numpy(float);w=sd.w_stack.to_numpy(float);cl=sd.state.astype(str).to_numpy()
+        keep=np.isfinite(y)&np.isfinite(w)&(w>0)&np.all(np.isfinite(X),axis=1);X=X[keep];y=y[keep];w=w[keep];cl=cl[keep]
+        if len(y)>1000 and len(pd.unique(cl))>=8:
+            fit=sm.WLS(y,X,weights=w).fit(cov_type='cluster',cov_kwds={'groups':cl,'use_correction':True})
+            tau=float(fit.params[1]);se=float(fit.bse[1]);p=float(fit.pvalues[1]);stacked_rows.append({'assignment_year':ay,'estimand':'common_stacked_formula_jump','tau':tau,'se':se,'p':p,'ci_low':tau-1.96*se,'ci_high':tau+1.96*se,'n':int(fit.nobs),'clusters':int(len(pd.unique(cl)))})
+    write_csv(out/'stacked_formula.csv',stacked_rows)
+    write_csv(out/'timing.csv',timing_rows);write_csv(out/'fidelity.csv',fidelity_rows);write_csv(out/'bandwidth_sensitivity.csv',bandwidth_rows)
+    write_csv(out/'state_response.csv',state_rows);write_csv(out/'social_heterogeneity.csv',social_rows);write_csv(out/'predetermined_balance.csv',balance_rows)
+    write_csv(out/'fuzzy_facility.csv',fuzzy_rows);write_csv(out/'raw_local_rates.csv',raw_rates)
+    (out/'validation.json').write_text(json.dumps(validation,indent=2,default=float),encoding='utf-8')
+
+    lines=[f'# Full four-threshold CSG cohort audit: {ay}','',f'Grant FY: {grant_fy}. Correct UDISE reporting round: {correct_report}.','']
+    for spec in SCHEDULE:
+        rows=[r for r in fidelity_rows if r['threshold']==spec['label'] and r['universe']=='broad_state' and r['sample']=='all' and r['outcome'] in ('receipt_atleast_upper','receipt_w99','expenditure_w99')]
+        lines.append(f"## {spec['end']}/{spec['end']+1}")
+        lines.append(spec['interpretation'])
+        for r in rows:
+            val=100*r['tau'] if r['outcome']=='receipt_atleast_upper' else r['tau'];unit=' pp' if r['outcome']=='receipt_atleast_upper' else ' Rs'
+            extra=f"; transmission ratio {r.get('recorded_transmission_ratio',float('nan')):.3f}" if 'recorded_transmi

@@ -1,0 +1,114 @@
+from __future__ import annotations
+import csv, json, math, os
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from statsmodels.stats.multitest import multipletests
+
+ROOT=Path(os.environ.get('INPUT_ROOT','inputs'))
+OUT=Path('studies/composite_school_grant/outputs/full_formula_audit/final');OUT.mkdir(parents=True,exist_ok=True)
+THRESHOLDS=['30_31','100_101','250_251','1000_1001']
+LABEL={'30_31':'30/31','100_101':'100/101','250_251':'250/251','1000_1001':'1000/1001'}
+TARGET={'30_31':25000,'100_101':50000,'250_251':75000,'1000_1001':100000}
+LOWER={'30_31':10000,'100_101':25000,'250_251':50000,'1000_1001':75000}
+JUMP={'30_31':15000,'100_101':25000,'250_251':25000,'1000_1001':25000}
+
+
+def gather(name):
+    files=list(ROOT.rglob(name))
+    arr=[]
+    for f in files:
+        try:
+            d=pd.read_csv(f)
+            if len(d):d['_source']=str(f);arr.append(d)
+        except Exception:pass
+    return pd.concat(arr,ignore_index=True) if arr else pd.DataFrame()
+
+def write(name,df):
+    df.to_csv(OUT/name,index=False)
+
+def ivw(g,coef='tau',se='se'):
+    z=g[[coef,se]].replace([np.inf,-np.inf],np.nan).dropna()
+    z=z[z[se]>0]
+    if len(z)==0:return {'k':0,'tau':np.nan,'se':np.nan,'ci_low':np.nan,'ci_high':np.nan,'p':np.nan}
+    w=1/z[se].to_numpy(float)**2;t=float(np.sum(w*z[coef])/np.sum(w));s=float(np.sqrt(1/np.sum(w)));p=math.erfc(abs(t/s)/math.sqrt(2)) if s>0 else np.nan
+    return {'k':len(z),'tau':t,'se':s,'ci_low':t-1.96*s,'ci_high':t+1.96*s,'p':p}
+
+fidelity=gather('fidelity.csv');timing=gather('timing.csv');state=gather('state_response.csv');social=gather('social_heterogeneity.csv');balance=gather('predetermined_balance.csv');fuzzy=gather('fuzzy_facility.csv');stacked=gather('stacked_formula.csv');bandwidth=gather('bandwidth_sensitivity.csv');raw=gather('raw_local_rates.csv')
+stable=gather('stable_entitlement_pairs.csv');persistent=gather('persistent_mismatch.csv');density=gather('density_placebo.csv');cross=gather('minimal_crossing_summary.csv');cycle=gather('cycle_fidelity_by_band.csv')
+
+# Core threshold x cohort matrix.
+core=fidelity[(fidelity.get('universe')=='broad_state')&(fidelity.get('sample')=='all')] if len(fidelity) else pd.DataFrame()
+rows=[]
+for th in THRESHOLDS:
+    for ay in sorted(core.assignment_year.unique()) if len(core) else []:
+        g=core[(core.threshold==th)&(core.assignment_year==ay)]
+        rec={'threshold':th,'assignment_year':ay,'lower_target':LOWER[th],'upper_target':TARGET[th],'nominal_jump':JUMP[th]}
+        for out,name,scale in [('receipt_atleast_upper','first_stage_pp',100),('receipt_exact_upper','exact_upper_jump_pp',100),('receipt_w99','receipt_jump_rs',1),('expenditure_w99','expenditure_jump_rs',1),('expenditure_atleast_upper','expenditure_threshold_jump_pp',100)]:
+            q=g[g.outcome==out]
+            if len(q):
+                r=q.iloc[0];rec[name]=float(r.tau)*scale;rec[name+'_p']=float(r.p)
+                if out in ('receipt_w99','expenditure_w99'):rec[name.replace('_rs','_transmission_ratio')]=float(r.tau)/JUMP[th]
+        pm=fidelity[(fidelity.threshold==th)&(fidelity.assignment_year==ay)&(fidelity.get('universe')=='broad_state')&(fidelity.get('sample')=='pm_safe_primary')&(fidelity.outcome=='receipt_atleast_upper')]
+        if len(pm):rec['pm_safe_first_stage_pp']=100*float(pm.iloc[0].tau);rec['pm_safe_p']=float(pm.iloc[0].p)
+        rows.append(rec)
+headline=pd.DataFrame(rows);write('threshold_cohort_headline.csv',headline)
+
+# Fixed-effect meta summaries across cohorts.
+meta=[]
+for th in THRESHOLDS:
+    for out in ['receipt_atleast_upper','receipt_exact_upper','receipt_w99','expenditure_w99','expenditure_atleast_upper']:
+        g=core[(core.threshold==th)&(core.outcome==out)]
+        r=ivw(g);meta.append({'threshold':th,'outcome':out,**r,'scaled_value':100*r['tau'] if ('atleast' in out or 'exact' in out) else r['tau'],'transmission_ratio':r['tau']/JUMP[th] if out in ('receipt_w99','expenditure_w99') else np.nan})
+meta=pd.DataFrame(meta);write('threshold_meta_summary.csv',meta)
+
+# Timing summaries.
+timing_summary=[]
+if len(timing):
+    t=timing[timing.universe=='broad_state']
+    for th in THRESHOLDS:
+        for ay in sorted(t.assignment_year.unique()):
+            g=t[(t.threshold==th)&(t.assignment_year==ay)].dropna(subset=['tau'])
+            if not len(g):continue
+            best=g.loc[g.tau.idxmax()]
+            timing_summary.append({'threshold':th,'assignment_year':ay,'best_lag':int(best.lag),'best_jump_pp':100*best.tau,
+                **{f'lag_{int(r.lag)}_pp':100*r.tau for _,r in g.iterrows()}})
+timing_summary=pd.DataFrame(timing_summary);write('timing_summary.csv',timing_summary)
+
+# Stacked common formula fingerprint.
+write('stacked_formula_all_cohorts.csv',stacked)
+stack_meta=ivw(stacked) if len(stacked) else {}
+
+# State speed x strength x fidelity per threshold, cohort-averaged.
+state_typ=[]
+if len(state):
+    fs=state[state.metric.isin(['first_stage_receipt_atleast_target','first_stage_receipt_atleast_target_canonical'])].copy()
+    # remove duplicate canonical lag3 rows if ordinary lag3 already exists
+    fs['is_canonical']=(fs.metric=='first_stage_receipt_atleast_target_canonical')
+    fs=fs.sort_values('is_canonical').drop_duplicates(['assignment_year','threshold','state','lag'],keep='last')
+    absf=state[state.metric=='right_side_absolute_fidelity'].copy()
+    for (th,st),g in fs.groupby(['threshold','state']):
+        curve=g.groupby('lag').tau.mean().sort_index();peak=float(curve.max()) if len(curve) else np.nan
+        n80=np.nan
+        if np.isfinite(peak) and peak>0:
+            cand=curve[curve>=.8*peak]
+            if len(cand):n80=float(cand.index.min())
+        strength=float(curve.get(3,np.nan));af=absf[(absf.threshold==th)&(absf.state.astype(str)==str(st))]
+        state_typ.append({'threshold':th,'state':st,'cohorts':g.assignment_year.nunique(),'strength_t3_pp':100*strength if np.isfinite(strength) else np.nan,
+          'peak_pp':100*peak if np.isfinite(peak) else np.nan,'n80_lag':n80,'right_side_fidelity':float(af.value.mean()) if len(af) else np.nan,
+          'right_side_exact_fidelity':float(af.exact_value.mean()) if len(af) else np.nan})
+state_typ=pd.DataFrame(state_typ);write('state_speed_strength_fidelity.csv',state_typ)
+
+# Social heterogeneity meta + FDR across groups within each threshold.
+social_meta=[]
+if len(social):
+    for (th,gname),g in social.groupby(['threshold','group']):
+        z=g.rename(columns={'interaction_per_10pp':'tau','se_per_10pp':'se'});r=ivw(z)
+        signs=(np.sign(z.tau.dropna())==np.sign(r['tau'])).mean() if np.isfinite(r['tau']) and len(z) else np.nan
+        social_meta.append({'threshold':th,'group':gname,'effect_pp_per_10pp':100*r['tau'],'se_pp':100*r['se'],'p':r['p'],'k':r['k'],'sign_agreement':signs})
+social_meta=pd.DataFrame(social_meta)
+if len(social_meta):
+    social_meta['q_bh']=np.nan
+    for th,g in social_meta.groupby('threshold'):
+        idx=g.index[g.p.notna()];social_meta.loc[idx

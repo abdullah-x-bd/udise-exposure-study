@@ -1,0 +1,125 @@
+from __future__ import annotations
+
+import csv, json, math, os, runpy, shutil
+from pathlib import Path
+
+import duckdb
+import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+
+T = runpy.run_path('studies/composite_school_grant/timing_core/run_timing_core.py', run_name='full_formula_longitudinal_lib')
+YEARS=T['YEARS']; build=T['build']; lit=T['lit']
+BROAD={1,2,3,6,89,90}
+SCHEDULE=[
+    {'label':'30_31','end':30,'lower':10000,'upper':25000,'jump':15000,'density_window':25,'approach':15},
+    {'label':'100_101','end':100,'lower':25000,'upper':50000,'jump':25000,'density_window':45,'approach':20},
+    {'label':'250_251','end':250,'lower':50000,'upper':75000,'jump':25000,'density_window':70,'approach':20},
+    {'label':'1000_1001','end':1000,'lower':75000,'upper':100000,'jump':25000,'density_window':175,'approach':50},
+]
+CYCLES=[('2019-20','2022-23'),('2020-21','2023-24'),('2021-22','2024-25'),('2022-23','2025-26')]
+PLACEBOS={30:[50,75],100:[75,125,150],250:[200,225,275,300],1000:[850,900,950,1050,1100,1150]}
+
+
+def write_csv(path, rows):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    if not rows:path.write_text('',encoding='utf-8');return
+    keys=[]
+    for r in rows:
+        for k in r:
+            if k not in keys:keys.append(k)
+    with path.open('w',newline='',encoding='utf-8') as f:
+        w=csv.DictWriter(f,fieldnames=keys);w.writeheader();w.writerows(rows)
+
+
+def target_expr(e='a.enrol'):
+    return f"CASE WHEN {e} BETWEEN 1 AND 30 THEN 10000 WHEN {e} BETWEEN 31 AND 100 THEN 25000 WHEN {e} BETWEEN 101 AND 250 THEN 50000 WHEN {e} BETWEEN 251 AND 1000 THEN 75000 WHEN {e}>1000 THEN 100000 END"
+
+
+def heap(v):
+    if v%100==0:return 5
+    if v%50==0:return 4
+    if v%25==0:return 3
+    if v%10==0:return 2
+    if v%5==0:return 1
+    return 0
+
+
+def density_fit(cmap, c, window, zone=5):
+    lo=max(1,c-window); hi=c+window+1
+    xs=np.arange(lo,hi+1); y=np.array([cmap.get(int(x),0) for x in xs],float)
+    z=(xs-(c+.5))/max(window,1); h=np.array([heap(int(x)) for x in xs])
+    sensitive=(xs>=c-zone)&(xs<=c+zone)
+    X=np.column_stack([np.ones(len(xs)),z,z*z,z*z*z]+[(h==k).astype(float) for k in range(1,6)])
+    fit=~sensitive
+    if fit.sum()<12:return None
+    try:
+        m=sm.GLM(y[fit],X[fit],family=sm.families.Poisson()).fit(maxiter=200,disp=0);pred=m.predict(X)
+    except Exception:
+        b=np.linalg.lstsq(X[fit],np.log1p(y[fit]),rcond=None)[0];pred=np.maximum(0,np.expm1(X@b))
+    above=(xs>=c+1)&(xs<=c+zone);below=(xs>=c-zone)&(xs<=c-1)
+    oa,ea=y[above].sum(),pred[above].sum();ob,eb=y[below].sum(),pred[below].sum()
+    if ea<=0 or eb<=0:return None
+    return {'threshold_end':c,'obs_above':float(oa),'expected_above':float(ea),'excess_ratio_above':float(oa/ea-1),
+            'obs_below':float(ob),'expected_below':float(eb),'excess_ratio_below':float(ob/eb-1),
+            'heaping_adjusted_asymmetry':float((oa/ea-1)-(ob/eb-1)),
+            'count_at_threshold_end':int(cmap.get(c,0)),'count_first_above':int(cmap.get(c+1,0))}
+
+
+def dist_standardized(a, c):
+    if len(a)==0:return (np.nan,np.nan)
+    aa=a.copy();aa['distance']=c-aa.x0
+    ex=[];f5=[]
+    for _,g in aa.groupby('distance'):
+        if len(g)>=5:
+            ex.append(float((g.x1==c+1).mean()));f5.append(float(((g.x1>=c+1)&(g.x1<=c+5)).mean()))
+    return (float(np.mean(ex)) if ex else np.nan,float(np.mean(f5)) if f5 else np.nan)
+
+
+def crossing_summary(z,c,width,kind,true_label):
+    a=z[(z.x0>=c-width)&(z.x0<=c)].copy()
+    if len(a)<50:return None
+    a['needed']=(c+1)-a.x0;a['increment']=a.x1-a.x0
+    exact=a[a.x1==c+1];first5=a[(a.x1>=c+1)&(a.x1<=c+5)]
+    sx,s5=dist_standardized(a,c)
+    return {'threshold_label':true_label,'threshold_end':c,'kind':kind,'approach_width':width,'n_approach':len(a),
+            'p_land_exact_first_above':float((a.x1==c+1).mean()),'p_land_first5_above':float(((a.x1>=c+1)&(a.x1<=c+5)).mean()),
+            'p_increment_exact_minimum':float((a['increment']==a['needed']).mean()),'distance_std_exact':sx,'distance_std_first5':s5,
+            'n_exact_first_above':len(exact),'p_exact_revert_below_next':float((exact.x2<=c).mean()) if len(exact) else np.nan,
+            'n_first5_above':len(first5),'p_first5_revert_below_next':float((first5.x2<=c).mean()) if len(first5) else np.nan}
+
+
+def main():
+    out=Path('studies/composite_school_grant/outputs/full_formula_audit/longitudinal');shutil.rmtree(out,ignore_errors=True);out.mkdir(parents=True)
+    con=duckdb.connect();con.execute('PRAGMA threads=4');con.execute("PRAGMA memory_limit='10GB'")
+    panel=build(con,os.environ['HF_DATASET_REPO'],os.environ['HF_TOKEN'],out)
+
+    # Build four correctly aligned entitlement-report cycles once.
+    parts=[]
+    for i,(ay,ry) in enumerate(CYCLES):
+        parts.append(f"""SELECT {i} cycle_index,{lit(ay)} assignment_year,{lit(ry)} report_year,a.pseudocode,a.state,a.management,a.enrol,
+          {target_expr('a.enrol')} target,f.receipt,f.expenditure
+          FROM read_parquet({lit(str(panel))}) a LEFT JOIN read_parquet({lit(str(panel))}) f
+          ON a.pseudocode=f.pseudocode AND f.academic_year={lit(ry)}
+          WHERE a.academic_year={lit(ay)} AND a.management IN ({','.join(map(str,sorted(BROAD)))}) AND a.enrol>=1""")
+    con.execute('CREATE TEMP TABLE cycles AS '+' UNION ALL '.join(parts))
+    con.execute("ALTER TABLE cycles ADD COLUMN meets BOOLEAN");con.execute("UPDATE cycles SET meets=receipt>=target WHERE receipt IS NOT NULL AND target IS NOT NULL")
+    con.execute("ALTER TABLE cycles ADD COLUMN exact BOOLEAN");con.execute("UPDATE cycles SET exact=ABS(receipt-target)<0.5 WHERE receipt IS NOT NULL AND target IS NOT NULL")
+
+    # Single-cycle fidelity by band and state.
+    cycle_rows=[]
+    q=con.execute("""SELECT assignment_year,report_year,target,COUNT(*) n,COUNT(receipt) n_reported,
+      AVG(CASE WHEN receipt>0 THEN 1.0 ELSE 0.0 END) p_positive,AVG(CAST(meets AS DOUBLE)) p_meets,AVG(CAST(exact AS DOUBLE)) p_exact,
+      AVG(CASE WHEN receipt IS NOT NULL THEN LEAST(receipt,target*2.0)/target END) mean_capped_ratio,
+      AVG(CASE WHEN receipt IS NOT NULL THEN GREATEST(target-receipt,0)/target END) mean_shortfall_share
+      FROM cycles WHERE target IS NOT NULL GROUP BY 1,2,3 ORDER BY 1,3""").fetchdf()
+    cycle_rows=q.to_dict('records');write_csv(out/'cycle_fidelity_by_band.csv',cycle_rows)
+
+    state_cycle=con.execute("""SELECT assignment_year,state,target,COUNT(*) n,AVG(CAST(meets AS DOUBLE)) p_meets,AVG(CAST(exact AS DOUBLE)) p_exact,
+      AVG(CASE WHEN receipt IS NOT NULL THEN LEAST(receipt,target*2.0)/target END) mean_capped_ratio
+      FROM cycles WHERE target IS NOT NULL GROUP BY 1,2,3 HAVING COUNT(*)>=50""").fetchdf().to_dict('records')
+    write_csv(out/'cycle_fidelity_by_state_band.csv',state_cycle)
+
+    # Stable entitlement across adjacent correct cycles.
+    pair=con.execute("""SELECT a.pseudocode,a.state,a.target,a.cycle_index cycle0,b.cycle_index cycle1,a.assignment_year year0,b.assignment_year year1,
+      a.receipt r0,b.receipt r1

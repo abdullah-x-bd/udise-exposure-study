@@ -1,0 +1,7 @@
+l crossing vs matched placebos']
+    for r in cross_summary:
+        if r['metric']=='p_land_exact_first_above':report.append(f"- {r['threshold_label']}: exact-first-above true-minus-placebo {100*r['mean_true_minus_placebo']:+.3f} pp across {r['cohorts']} windows")
+    (out/'RESULTS.md').write_text('\n'.join(report),encoding='utf-8');print('\n'.join(report),flush=True)
+    con.close()
+
+if __name__=='__main__':main()

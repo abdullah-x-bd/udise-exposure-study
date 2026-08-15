@@ -1,0 +1,84 @@
+ around each cutoff, never uploaded as artifacts.
+        for spec in SCHEDULE:
+            end=spec['end']; cutoff=end+.5; upper=spec['upper']; lower=spec['lower']; bw=spec['bw']; maxbw=bw*1.75
+            local=con.execute(f"""
+              SELECT a.*,e.enrol18,{prev_cols}
+              FROM read_parquet({lit(str(comp))}) a
+              LEFT JOIN read_parquet({lit(str(e8p))}) e USING(pseudocode)
+              LEFT JOIN read_parquet({lit(str(pcomp))}) p USING(pseudocode)
+              WHERE a.enrol BETWEEN {cutoff-maxbw} AND {cutoff+maxbw}
+            """).df();local['assignment_year']=ay
+            for lag,fp in finance.items():
+                f=con.execute(f"SELECT * FROM read_parquet({lit(str(fp))})").df()
+                d=local.merge(f,on='pseudocode',how='left')
+                for uname,codes in [('core_state_local',CORE_STATE_LOCAL),('broad_state',BROAD_STATE),('all_udise_government',ALL_UDISE_GOVERNMENT)]:
+                    z=d[universe_mask(d.management,codes)].copy();y=np.where(np.isfinite(z.receipt),(z.receipt>=upper).astype(float),np.nan)
+                    est=fit_rdrobust(y,z.enrol,z.state,cutoff,bw)
+                    if est and 'tau' in est:
+                        timing_rows.append({'assignment_year':ay,'grant_financial_year':grant_fy,'outcome_year':YEARS[ai+lag],'lag':lag,
+                                            'threshold':spec['label'],'threshold_end':end,'target':upper,'universe':uname,**est})
+                if lag<=3:
+                    zb=d[universe_mask(d.management,BROAD_STATE)].copy();zb['y']=(zb.receipt>=upper).astype(float)
+                    for state,g in zb.groupby('state',dropna=True):
+                        est=fit_local(g,'y',cutoff,bw,'district')
+                        if est:
+                            state_rows.append({'assignment_year':ay,'lag':lag,'outcome_year':YEARS[ai+lag],'threshold':spec['label'],'state':state,
+                                               'metric':'first_stage_receipt_atleast_target',**est})
+
+            # Correctly timed financial fidelity at +3.
+            f=con.execute(f"SELECT * FROM read_parquet({lit(str(finance[3]))})").df();d=local.merge(f,on='pseudocode',how='left')
+            for uname,codes in [('core_state_local',CORE_STATE_LOCAL),('broad_state',BROAD_STATE),('all_udise_government',ALL_UDISE_GOVERNMENT)]:
+                z=d[universe_mask(d.management,codes)].copy();r=z.receipt.to_numpy(float);q=z.expenditure.to_numpy(float);vr=np.isfinite(r);vq=np.isfinite(q)
+                outs={
+                    'receipt_exact_lower':np.where(vr,np.isclose(r,lower).astype(float),np.nan),
+                    'receipt_exact_upper':np.where(vr,np.isclose(r,upper).astype(float),np.nan),
+                    'receipt_atleast_upper':np.where(vr,(r>=upper).astype(float),np.nan),
+                    'receipt_above_lower':np.where(vr,(r>lower).astype(float),np.nan),
+                    'receipt_positive':np.where(vr,(r>0).astype(float),np.nan),
+                    'expenditure_exact_lower':np.where(vq,np.isclose(q,lower).astype(float),np.nan),
+                    'expenditure_exact_upper':np.where(vq,np.isclose(q,upper).astype(float),np.nan),
+                    'expenditure_atleast_upper':np.where(vq,(q>=upper).astype(float),np.nan),
+                    'expenditure_above_lower':np.where(vq,(q>lower).astype(float),np.nan),
+                    'expenditure_positive':np.where(vq,(q>0).astype(float),np.nan),
+                }
+                # Winsorization is local and side-agnostic within each threshold/universe sample.
+                if vr.sum()>100: outs['receipt_w99']=np.where(vr,np.minimum(r,np.nanquantile(r,.99)),np.nan)
+                if vq.sum()>100: outs['expenditure_w99']=np.where(vq,np.minimum(q,np.nanquantile(q,.99)),np.nan)
+                for name,y in outs.items():
+                    est=fit_rdrobust(y,z.enrol,z.state,cutoff,bw)
+                    if est and 'tau' in est:
+                        rec={'assignment_year':ay,'grant_financial_year':grant_fy,'report_year':correct_report,'threshold':spec['label'],
+                             'threshold_end':end,'lower_target':lower,'upper_target':upper,'nominal_jump':spec['jump'],'universe':uname,
+                             'sample':'all','outcome':name,'bw':bw,**est}
+                        if name in ('receipt_w99','expenditure_w99'):rec['recorded_transmission_ratio']=rec['tau']/spec['jump']
+                        fidelity_rows.append(rec)
+                if uname=='broad_state':
+                    for variant in ('primary','strict'):
+                        m=pm_safe_mask(z,end,variant);zz=z.loc[m].copy()
+                        rr=zz.receipt.to_numpy(float);qq=zz.expenditure.to_numpy(float);vrr=np.isfinite(rr);vqq=np.isfinite(qq)
+                        for name,y in {
+                            'receipt_atleast_upper':np.where(vrr,(rr>=upper).astype(float),np.nan),
+                            'expenditure_atleast_upper':np.where(vqq,(qq>=upper).astype(float),np.nan),
+                        }.items():
+                            est=fit_rdrobust(y,zz.enrol,zz.state,cutoff,bw)
+                            if est and 'tau' in est:fidelity_rows.append({'assignment_year':ay,'grant_financial_year':grant_fy,'report_year':correct_report,
+                                'threshold':spec['label'],'threshold_end':end,'lower_target':lower,'upper_target':upper,'nominal_jump':spec['jump'],
+                                'universe':uname,'sample':f'pm_safe_{variant}','outcome':name,'bw':bw,**est})
+
+            # Bandwidth sensitivity for primary first stage, broad state universe.
+            z=d[universe_mask(d.management,BROAD_STATE)].copy();y=np.where(np.isfinite(z.receipt),(z.receipt>=upper).astype(float),np.nan)
+            for mult in (.5,.75,1.0,1.33,1.67):
+                hb=max(5,bw*mult);est=fit_rdrobust(y,z.enrol,z.state,cutoff,hb)
+                if est and 'tau' in est:bandwidth_rows.append({'assignment_year':ay,'threshold':spec['label'],'bw':hb,'bw_multiplier':mult,**est})
+
+            # Raw local rates, state fidelity at +3.
+            zb=d[universe_mask(d.management,BROAD_STATE)].copy();
+            # Standardized rows for a common stacked multi-cutoff RD within this cohort.
+            stp=zb[np.abs(zb.enrol-cutoff)<=bw].copy()
+            if len(stp):
+                stp['threshold']=spec['label'];stp['T']=(stp.enrol>=cutoff).astype(float);stp['z_scaled']=(stp.enrol-cutoff)/bw
+                stp['w_stack']=np.maximum(0,1-np.abs(stp.z_scaled));stp['y_stack']=np.where(np.isfinite(stp.receipt),(stp.receipt>=upper).astype(float),np.nan)
+                stack_parts.append(stp[['state','threshold','T','z_scaled','w_stack','y_stack']])
+            left=zb[(zb.enrol>=cutoff-bw)&(zb.enrol<cutoff)];right=zb[(zb.enrol>=cutoff)&(zb.enrol<=cutoff+bw)]
+            for side,g,target in [('left',left,lower),('right',right,upper)]:
+                raw_rates.append({'assignment_year':ay,'threshold':spec['label'],'side':side,'target'

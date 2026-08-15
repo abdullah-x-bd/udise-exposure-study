@@ -1,0 +1,92 @@
+,a.meets m0,b.meets m1,a.exact e0,b.exact e1
+      FROM cycles a JOIN cycles b ON a.pseudocode=b.pseudocode AND b.cycle_index=a.cycle_index+1
+      WHERE a.target=b.target AND a.target IS NOT NULL""").fetchdf()
+    stable_rows=[];state_stable=[]
+    for keys,g in pair.groupby(['year0','year1','target'],dropna=False):
+        rr=g[['r0','r1']].dropna();corr=float(rr.r0.corr(rr.r1)) if len(rr)>=20 and rr.r0.std()>0 and rr.r1.std()>0 else np.nan
+        below=g[g.m0==False];meet0=g[g.m0==True]
+        stable_rows.append({'year0':keys[0],'year1':keys[1],'target':keys[2],'n':len(g),'n_both_reported':len(rr),
+          'p_meet_both':float(((g.m0==True)&(g.m1==True)).mean()),'p_below_both':float(((g.m0==False)&(g.m1==False)).mean()),
+          'p_exact_both':float(((g.e0==True)&(g.e1==True)).mean()),'recovery_if_below':float((below.m1==True).mean()) if len(below) else np.nan,
+          'relapse_if_met':float((meet0.m1==False).mean()) if len(meet0) else np.nan,'mean_abs_receipt_change':float((rr.r1-rr.r0).abs().mean()) if len(rr) else np.nan,
+          'receipt_corr':corr})
+    for (state,target),g in pair.groupby(['state','target']):
+        if len(g)<100:continue
+        below=g[g.m0==False];meet0=g[g.m0==True]
+        state_stable.append({'state':state,'target':target,'n_pairs':len(g),'p_meet_both':float(((g.m0==True)&(g.m1==True)).mean()),
+          'p_below_both':float(((g.m0==False)&(g.m1==False)).mean()),'recovery_if_below':float((below.m1==True).mean()) if len(below) else np.nan,
+          'relapse_if_met':float((meet0.m1==False).mean()) if len(meet0) else np.nan})
+    write_csv(out/'stable_entitlement_pairs.csv',stable_rows);write_csv(out/'stable_entitlement_state.csv',state_stable)
+
+    # Persistent mismatch among schools whose target is unchanged over >=3 observed cycles.
+    hist=con.execute("""SELECT pseudocode,state,target,COUNT(*) cycles,COUNT(receipt) reported,
+      SUM(CASE WHEN meets THEN 1 ELSE 0 END) meet_cycles,SUM(CASE WHEN meets=FALSE THEN 1 ELSE 0 END) below_cycles,
+      SUM(CASE WHEN exact THEN 1 ELSE 0 END) exact_cycles
+      FROM cycles WHERE target IS NOT NULL GROUP BY 1,2,3 HAVING COUNT(*)>=3""").fetchdf()
+    persistent=[]
+    for target,g in hist.groupby('target'):
+        persistent.append({'target':target,'schools_3plus_cycles':len(g),'p_never_meets':float((g.meet_cycles==0).mean()),
+          'p_always_meets':float((g.meet_cycles==g.cycles).mean()),'p_below_at_least_2_cycles':float((g.below_cycles>=2).mean()),
+          'p_exact_every_cycle':float((g.exact_cycles==g.cycles).mean()),'mean_meet_cycle_share':float((g.meet_cycles/g.cycles).mean())})
+    write_csv(out/'persistent_mismatch.csv',persistent)
+    persistent_state=[]
+    for (state,target),g in hist.groupby(['state','target']):
+        if len(g)<100:continue
+        persistent_state.append({'state':state,'target':target,'n':len(g),'p_never_meets':float((g.meet_cycles==0).mean()),
+          'p_below_at_least_2_cycles':float((g.below_cycles>=2).mean()),'mean_meet_cycle_share':float((g.meet_cycles/g.cycles).mean())})
+    write_csv(out/'persistent_mismatch_state.csv',persistent_state)
+
+    # Heaping-adjusted density and local placebos, all eight years.
+    density_rows=[]
+    for year in YEARS:
+        vals=con.execute(f"SELECT CAST(enrol AS INTEGER) e,COUNT(*) n FROM read_parquet({lit(str(panel))}) WHERE academic_year={lit(year)} AND management IN ({','.join(map(str,sorted(BROAD)))}) AND enrol BETWEEN 1 AND 1250 GROUP BY 1").fetchall()
+        cmap={int(e):int(n) for e,n in vals}
+        for spec in SCHEDULE:
+            c=spec['end'];r=density_fit(cmap,c,spec['density_window'])
+            if r:density_rows.append({'academic_year':year,'threshold_label':spec['label'],'kind':'true',**r})
+            for p in PLACEBOS[c]:
+                w=max(20,min(spec['density_window'],100));rr=density_fit(cmap,p,w)
+                if rr:density_rows.append({'academic_year':year,'threshold_label':spec['label'],'kind':'placebo','placebo_for':c,**rr})
+    write_csv(out/'density_placebo.csv',density_rows)
+
+    # Longitudinal minimum crossing / reversion around every true boundary and matched placebos.
+    cross_rows=[]
+    for i in range(len(YEARS)-2):
+        y0,y1,y2=YEARS[i:i+3]
+        # Pull only schools relevant to any threshold/placebo; upper bound 1200.
+        d=con.execute(f"""SELECT a.pseudocode,a.enrol x0,b.enrol x1,c.enrol x2,a.state FROM read_parquet({lit(str(panel))}) a
+          JOIN read_parquet({lit(str(panel))}) b ON a.pseudocode=b.pseudocode AND b.academic_year={lit(y1)}
+          JOIN read_parquet({lit(str(panel))}) c ON a.pseudocode=c.pseudocode AND c.academic_year={lit(y2)}
+          WHERE a.academic_year={lit(y0)} AND a.management IN ({','.join(map(str,sorted(BROAD)))}) AND a.enrol BETWEEN 1 AND 1200""").fetchdf()
+        for spec in SCHEDULE:
+            c=spec['end'];r=crossing_summary(d,c,spec['approach'],'true',spec['label'])
+            if r:cross_rows.append({'start_year':y0,'middle_year':y1,'end_year':y2,**r})
+            for p in PLACEBOS[c]:
+                rr=crossing_summary(d,p,spec['approach'],'placebo',spec['label'])
+                if rr:cross_rows.append({'start_year':y0,'middle_year':y1,'end_year':y2,**rr})
+    write_csv(out/'minimal_crossing_all_thresholds.csv',cross_rows)
+
+    # Aggregate true-vs-placebo differences for interpretation.
+    cross_summary=[]
+    cr=pd.DataFrame(cross_rows)
+    if len(cr):
+        for label,g in cr.groupby('threshold_label'):
+            for metric in ['p_land_exact_first_above','p_increment_exact_minimum','p_exact_revert_below_next','distance_std_exact']:
+                true=g[g.kind=='true'].groupby('start_year')[metric].mean();pl=g[g.kind=='placebo'].groupby('start_year')[metric].mean()
+                j=pd.concat([true.rename('true'),pl.rename('placebo')],axis=1).dropna()
+                if len(j):cross_summary.append({'threshold_label':label,'metric':metric,'cohorts':len(j),'mean_true':float(j.true.mean()),'mean_placebo':float(j.placebo.mean()),'mean_true_minus_placebo':float((j.true-j.placebo).mean())})
+    write_csv(out/'minimal_crossing_summary.csv',cross_summary)
+
+    # Remove school-level panel material before artifact upload.
+    shutil.rmtree(out/'year',ignore_errors=True)
+    try:(out/'panel.parquet').unlink()
+    except FileNotFoundError:pass
+    try:(out/'build_manifest.json').unlink()
+    except FileNotFoundError:pass
+
+    report=['# Full formula longitudinal audit','',
+      'Stable-entitlement analyses use the four correctly aligned assignment/report cycles. They describe UDISE-recorded administrative reliability and do not by themselves prove actual cash non-receipt.',
+      '', '## Persistent mismatch by nominal target']
+    for r in persistent:
+        report.append(f"- Rs {int(r['target']):,}: never meets target in >=3 stable cycles {100*r['p_never_meets']:.2f}%; below target in >=2 cycles {100*r['p_below_at_least_2_cycles']:.2f}%; always meets {100*r['p_always_meets']:.2f}%")
+    report+=['','## Longitudina
