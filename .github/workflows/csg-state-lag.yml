@@ -32,6 +32,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e .
+      - run: python -m pip install "pandas>=2.2,<3"
       - run: python studies/composite_school_grant/state_lag/run_state_lag.py
       - uses: actions/upload-artifact@v4
         if: always()
