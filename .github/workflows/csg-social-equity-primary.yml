@@ -1,0 +1,49 @@
+name: CSG social equity primary matrix
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths:
+      - "studies/composite_school_grant/social_equity/run_primary_group.py"
+      - ".github/workflows/csg-social-equity-primary.yml"
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  group:
+    strategy:
+      fail-fast: false
+      max-parallel: 11
+      matrix:
+        social_group: [general, sc, st, obc, muslim, christian, sikh, buddhist, parsi, jain, non_listed_minority_religion]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      SOCIAL_GROUP: ${{ matrix.social_group }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - run: python -m pip install "pandas>=2.2,<3" "scipy>=1.14,<2" "statsmodels>=0.14,<1"
+      - name: Remove dataframe-transpose placeholders in shared social library
+        run: sed -i '/d\["Tz"\] = d.T \* 0/d' studies/composite_school_grant/social_equity/run_social_equity.py
+      - run: python studies/composite_school_grant/social_equity/run_primary_group.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-social-primary-${{ matrix.social_group }}
+          path: studies/composite_school_grant/outputs/social_equity_primary/${{ matrix.social_group }}/*.csv
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-social-primary-report-${{ matrix.social_group }}
+          path: studies/composite_school_grant/outputs/social_equity_primary/${{ matrix.social_group }}/RESULTS.md
+          retention-days: 14
