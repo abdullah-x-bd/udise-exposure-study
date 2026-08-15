@@ -30,7 +30,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e .
-      - run: python -m pip install "pandas>=2.2,<3"
+      - run: python -m pip install "pandas>=2.2,<3" "statsmodels>=0.14,<1"
       - name: Remove shared transpose placeholder
         run: sed -i '/d\["Tz"\] = d.T \* 0/d' studies/composite_school_grant/social_equity/run_social_equity.py
       - run: python studies/composite_school_grant/social_equity/run_balance.py
