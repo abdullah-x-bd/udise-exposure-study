@@ -23,14 +23,14 @@ def fit_state(d,state):
   if c not in support.columns:support[c]=0
  good=support[(support[required]>=3).all(axis=1)].index;d=d[d.fe.isin(good)].copy()
  if len(d)<400 or d.fe.nunique()<8:return None
- d['M']=d.M.astype(float);d['T']=d.T.astype(float);d['z']=d.enrol-CUT;d['Tz']=d.T*d.z;d['TM']=d.T*d.M;d['zM']=d.z*d.M;d['TzM']=d.T*d.z*d.M;d['y']=(d.receipt>=75000).astype(float);d['w']=np.maximum(0,1-np.abs(d.z)/BW)
+ d['M']=d['M'].astype(float);d['T']=d['T'].astype(float);d['z']=d.enrol-CUT;d['Tz']=d['T']*d['z'];d['TM']=d['T']*d['M'];d['zM']=d['z']*d['M'];d['TzM']=d['T']*d['z']*d['M'];d['y']=(d.receipt>=75000).astype(float);d['w']=np.maximum(0,1-np.abs(d.z)/BW)
  cols=['y','T','z','Tz','M','TM','zM','TzM']
  for base in ('management','rural_urban','school_category'):
   vals=pd.to_numeric(d[base],errors='coerce').fillna(-999).astype(int);cats=sorted(vals.unique())
   for c in cats[1:]:n=f'cv_{base}_{c}';d[n]=(vals==c).astype(float);cols.append(n)
  d=weighted_demean(d,cols,'fe','w');xcols=['T','z','Tz','M','TM','zM','TzM']+[c for c in cols if c.startswith('cv_')];fit=cluster_fit(d[xcols].to_numpy(float),d.y.to_numpy(float),d.w.to_numpy(float),d.district.astype(str).to_numpy())
  if fit is None:return None
- j=xcols.index('TM');b=float(fit.params[j]);se=float(fit.bse[j]);return {'state':state,'majority_minus_nonmajority_first_stage':b,'se':se,'p':float(fit.pvalues[j]),'ci_low':b-1.96*se,'ci_high':b+1.96*se,'n':int(fit.nobs),'districts':int(d.fe.nunique()),'muslim_majority_n':int((d.M==1).sum()),'nonmajority_n':int((d.M==0).sum())}
+ j=xcols.index('TM');b=float(fit.params[j]);se=float(fit.bse[j]);return {'state':state,'majority_minus_nonmajority_first_stage':b,'se':se,'p':float(fit.pvalues[j]),'ci_low':b-1.96*se,'ci_high':b+1.96*se,'n':int(fit.nobs),'districts':int(d.fe.nunique()),'muslim_majority_n':int((d['M']==1).sum()),'nonmajority_n':int((d['M']==0).sum())}
 
 def main():
  ay=os.environ.get('ASSIGN_YEAR','2022-23');ai=YEARS.index(ay);prev=YEARS[ai-1];ry=YEARS[ai+3];repo=os.environ['HF_DATASET_REPO'];tok=os.environ['HF_TOKEN'];out=Path(f'studies/composite_school_grant/outputs/state_majority_interaction/{ay}');out.mkdir(parents=True,exist_ok=True);con=duckdb.connect();con.execute('PRAGMA threads=4');con.execute("PRAGMA memory_limit='10GB'")
