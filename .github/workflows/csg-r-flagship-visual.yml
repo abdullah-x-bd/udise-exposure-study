@@ -1,0 +1,49 @@
+name: Render CSG flagship visual in R
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/composite-school-grant-study
+    paths:
+      - 'studies/composite_school_grant/figures/flagship_policy_prism.R'
+      - '.github/workflows/csg-r-flagship-visual.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: research/composite-school-grant-study
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install R packages
+        shell: Rscript {0}
+        run: |
+          install.packages(c('ggplot2', 'dplyr', 'scales', 'svglite', 'tibble'))
+
+      - name: Render flagship figure
+        run: Rscript studies/composite_school_grant/figures/flagship_policy_prism.R
+
+      - name: Commit rendered outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add studies/composite_school_grant/figures/rendered/csg_policy_prism_R.png
+          git add studies/composite_school_grant/figures/rendered/csg_policy_prism_R.svg
+          git add studies/composite_school_grant/figures/rendered/csg_policy_prism_R.pdf
+          if git diff --cached --quiet; then
+            echo "No rendered changes"
+          else
+            git commit -m "Render CSG flagship visual with R"
+            git push origin HEAD:research/composite-school-grant-study
+          fi
