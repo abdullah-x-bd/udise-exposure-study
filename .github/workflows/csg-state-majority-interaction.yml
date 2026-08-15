@@ -1,0 +1,37 @@
+name: CSG state Muslim-majority cutoff interaction
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths:
+      - "studies/composite_school_grant/social_equity/run_state_majority_interaction.py"
+      - ".github/workflows/csg-state-majority-interaction.yml"
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+  ASSIGN_YEAR: "2022-23"
+
+jobs:
+  decompose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - run: python -m pip install "pandas>=2.2,<3" "statsmodels>=0.14,<1"
+      - run: python studies/composite_school_grant/social_equity/run_state_majority_interaction.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-state-majority-interaction-2022-23
+          path: |
+            studies/composite_school_grant/outputs/state_majority_interaction/2022-23/*.csv
+            studies/composite_school_grant/outputs/state_majority_interaction/2022-23/*.json
+          retention-days: 14
