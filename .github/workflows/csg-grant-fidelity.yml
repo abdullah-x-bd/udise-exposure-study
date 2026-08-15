@@ -1,0 +1,42 @@
+name: CSG grant fidelity decomposition
+
+on:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths:
+      - "studies/composite_school_grant/grant_fidelity/**"
+      - ".github/workflows/csg-grant-fidelity.yml"
+
+permissions:
+  contents: read
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  fidelity:
+    strategy:
+      fail-fast: false
+      matrix:
+        assign: ["2019-20","2020-21","2021-22","2022-23"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      ASSIGN_YEAR: ${{ matrix.assign }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - name: Run grant fidelity decomposition
+        run: python studies/composite_school_grant/grant_fidelity/run_fidelity.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-fidelity-${{ matrix.assign }}
+          path: studies/composite_school_grant/outputs/grant_fidelity/${{ matrix.assign }}/
+          retention-days: 14
