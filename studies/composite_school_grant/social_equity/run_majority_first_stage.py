@@ -18,7 +18,7 @@ def write_csv(path,rows):
 def rd(d,cluster_col):
  d=d[np.isfinite(d.receipt)&np.isfinite(d.enrol)&(np.abs(d.enrol-CUT)<=BW)].copy()
  if len(d)<500:return None
- d['T']=(d.enrol>=CUT).astype(float);d['z']=d.enrol-CUT;d['Tz']=d.T*d.z;d['y']=(d.receipt>=75000).astype(float);d['w']=np.maximum(0,1-np.abs(d.z)/BW)
+ d['T']=(d.enrol>=CUT).astype(float);d['z']=d.enrol-CUT;d['Tz']=d['T']*d['z'];d['y']=(d.receipt>=75000).astype(float);d['w']=np.maximum(0,1-np.abs(d.z)/BW)
  X=d[['T','z','Tz']].to_numpy(float);fit=cluster_fit(X,d.y.to_numpy(float),d.w.to_numpy(float),d[cluster_col].astype(str).to_numpy())
  if fit is None:return None
  return {'tau':float(fit.params[0]),'se':float(fit.bse[0]),'p':float(fit.pvalues[0]),'ci_low':float(fit.params[0]-1.96*fit.bse[0]),'ci_high':float(fit.params[0]+1.96*fit.bse[0]),'n':int(fit.nobs),'clusters':int(d[cluster_col].astype(str).nunique())}
