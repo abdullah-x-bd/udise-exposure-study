@@ -66,7 +66,11 @@ def fit(y,x,d,state,fuzzy=False):
 
 
 def main():
-    ay=os.environ['ASSIGN_YEAR'];ai=YEARS.index(ay);gy=YEARS[ai+2];future=YEARS[ai+2:];repo=os.environ['HF_DATASET_REPO'];tok=os.environ['HF_TOKEN'];out=Path(f'studies/composite_school_grant/outputs/fuzzy_rd/{ay}');out.mkdir(parents=True,exist_ok=True);rows=[]
+    ay=os.environ['ASSIGN_YEAR'];ai=YEARS.index(ay)
+    grant_financial_year=YEARS[ai+2]
+    report_year=YEARS[ai+3]
+    future=YEARS[ai+3:]
+    repo=os.environ['HF_DATASET_REPO'];tok=os.environ['HF_TOKEN'];out=Path(f'studies/composite_school_grant/outputs/fuzzy_rd/{ay}');out.mkdir(parents=True,exist_ok=True);rows=[]
     con=duckdb.connect();con.execute('PRAGMA threads=4');con.execute("PRAGMA memory_limit='10GB'")
     with tempfile.TemporaryDirectory(prefix=f'fuzzy_{ay}_') as td:
         root=Path(td)
@@ -74,7 +78,7 @@ def main():
         bsel=','.join(f'{v} b_{k}' for k,v in bc.items() if k in ASSETS)
         con.execute(f"CREATE TEMP TABLE ee AS SELECT CAST({qid(ei)} AS VARCHAR) pseudocode,SUM({es}) enrol,SUM({e8}) enrol18 FROM {en} WHERE {filt} GROUP BY 1")
         con.execute(f"CREATE TEMP TABLE base AS SELECT e.pseudocode,e.enrol,e.enrol18,{ce} state,{bsel} FROM ee e JOIN {p1} p ON e.pseudocode=CAST(p.{qid(pi)} AS VARCHAR) LEFT JOIN {fac} f ON e.pseudocode=CAST(f.{qid(fi)} AS VARCHAR) WHERE {nref(pc,'managment','p')} IN {GOV} AND e.enrol BETWEEN 180 AND 321")
-        gp=src(extract(repo,tok,gy,'profile_2',root));gc=cols(con,gp);gi=ident(gc);con.execute(f"CREATE TEMP TABLE grant AS SELECT CAST({qid(gi)} AS VARCHAR) pseudocode,{nref(gc,'grants_receipt')} receipt FROM {gp}")
+        gp=src(extract(repo,tok,report_year,'profile_2',root));gc=cols(con,gp);gi=ident(gc);con.execute(f"CREATE TEMP TABLE grant AS SELECT CAST({qid(gi)} AS VARCHAR) pseudocode,{nref(gc,'grants_receipt')} receipt FROM {gp}")
         for oy in future:
             of=src(extract(repo,tok,oy,'facility',root));oc=cols(con,of);oi=ident(oc);cc=component_exprs(oc,'o');osel=','.join(f'{v} o_{k}' for k,v in cc.items() if k in ASSETS)
             con.execute(f"CREATE OR REPLACE TEMP TABLE fut AS SELECT CAST({qid(oi)} AS VARCHAR) pseudocode,{osel} FROM {of}")
@@ -99,12 +103,13 @@ def main():
                     fs=fit(tt[m],x[m],tt[m],st[m],False)
                     rf=fit(y[m],x[m],tt[m],st[m],False)
                     fr=fit(y[m],x[m],tt[m],st[m],True)
-                    if fs:rows.append({'assignment_year':ay,'grant_year':gy,'outcome_year':oy,'event_time_since_grant':YEARS.index(oy)-YEARS.index(gy),'sample':sample,'outcome':outcome,'estimand':'first_stage_receipt_ge75000',**fs})
-                    if rf:rows.append({'assignment_year':ay,'grant_year':gy,'outcome_year':oy,'event_time_since_grant':YEARS.index(oy)-YEARS.index(gy),'sample':sample,'outcome':outcome,'estimand':'reduced_form_threshold',**rf})
-                    if fr:rows.append({'assignment_year':ay,'grant_year':gy,'outcome_year':oy,'event_time_since_grant':YEARS.index(oy)-YEARS.index(gy),'sample':sample,'outcome':outcome,'estimand':'fuzzy_RD_reported_high_receipt',**fr})
-            print(json.dumps({'assignment':ay,'grant_year':gy,'outcome_year':oy,'n':len(d),'clusters':int(d.state.nunique(dropna=True))}),flush=True)
+                    common={'assignment_year':ay,'grant_financial_year':grant_financial_year,'udise_financial_report_year':report_year,'outcome_year':oy,'event_time_since_report_year':YEARS.index(oy)-YEARS.index(report_year),'sample':sample,'outcome':outcome}
+                    if fs:rows.append({**common,'estimand':'first_stage_receipt_ge75000',**fs})
+                    if rf:rows.append({**common,'estimand':'reduced_form_threshold',**rf})
+                    if fr:rows.append({**common,'estimand':'fuzzy_RD_reported_high_receipt',**fr})
+            print(json.dumps({'assignment':ay,'grant_financial_year':grant_financial_year,'report_year':report_year,'outcome_year':oy,'n':len(d),'clusters':int(d.state.nunique(dropna=True))}),flush=True)
     write(out/'fuzzy_results.csv',rows)
-    md=['# Fuzzy RD sensitivity '+ay,'',f'Assignment enrolment {ay}; documented-style +2 grant year {gy}.','', 'Treatment is UDISE-reported receipt >= Rs 75,000, not independently audited PFMS receipt.']
+    md=['# Fuzzy RD sensitivity '+ay,'',f'Assignment enrolment {ay}; grant financial year {grant_financial_year}; UDISE field reporting that prior financial year is {report_year}.','', 'Treatment is UDISE-reported receipt >= Rs 75,000, not independently audited PFMS receipt.']
     for r in rows:
         if r['sample']=='all' and r['estimand']=='fuzzy_RD_reported_high_receipt':md.append(f"- {r['outcome_year']} {r['outcome']}: LATE {r['tau']:.4f} (95% CI {r['ci_low']:.4f} to {r['ci_high']:.4f}), p={r['p']:.4g}")
     (out/'RESULTS.md').write_text('\n'.join(md),encoding='utf-8');print('\n'.join(md),flush=True);con.close()
