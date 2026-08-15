@@ -1,0 +1,47 @@
+name: CSG social equity joint composition
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths:
+      - "studies/composite_school_grant/social_equity/run_joint_composition.py"
+      - ".github/workflows/csg-social-equity-joint.yml"
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  cohort:
+    strategy:
+      fail-fast: false
+      matrix:
+        assignment_year: ["2019-20","2020-21","2021-22","2022-23"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      ASSIGN_YEAR: ${{ matrix.assignment_year }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - run: python -m pip install "pandas>=2.2,<3" "scipy>=1.14,<2" "statsmodels>=0.14,<1"
+      - name: Remove dataframe-transpose placeholders
+        run: |
+          sed -i '/d\["Tz"\] = d.T \* 0/d' studies/composite_school_grant/social_equity/run_social_equity.py
+          sed -i "/d\['Tz'\]=d.T\*0/d" studies/composite_school_grant/social_equity/run_joint_composition.py
+      - run: python studies/composite_school_grant/social_equity/run_joint_composition.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-social-joint-${{ matrix.assignment_year }}
+          path: |
+            studies/composite_school_grant/outputs/social_equity_joint/${{ matrix.assignment_year }}/*.csv
+            studies/composite_school_grant/outputs/social_equity_joint/${{ matrix.assignment_year }}/*.json
+            studies/composite_school_grant/outputs/social_equity_joint/${{ matrix.assignment_year }}/RESULTS.md
+          retention-days: 14
