@@ -27,14 +27,23 @@ def rd(d,fe_col):
 def majority_interaction(d):
  d=d[np.isfinite(d.receipt)&np.isfinite(d.enrol)&np.isfinite(d.prev_muslim_share)&(d.prev_muslim_share!=.5)&(np.abs(d.enrol-CUT)<=BW)].copy()
  if len(d)<2000:return None
- d['M']=(d.prev_muslim_share>.5).astype(float);d['T']=(d.enrol>=CUT).astype(float);d['z']=d.enrol-CUT;d['Tz']=d['T']*d['z'];d['TM']=d['T']*d['M'];d['zM']=d['z']*d['M'];d['TzM']=d['T']*d['z']*d['M'];d['y']=(d.receipt>=75000).astype(float);d['w']=np.maximum(0,1-np.abs(d.z)/BW);d['fe']=d.state.astype(str)+'|'+d.district.astype(str)
+ d['M']=(d.prev_muslim_share>.5).astype(int);d['T']=(d.enrol>=CUT).astype(int);d['fe']=d.state.astype(str)+'|'+d.district.astype(str)
+ # Identification is restricted to districts with both composition groups on both sides of the cutoff.
+ support=d.groupby(['fe','M','T']).size().unstack(['M','T'],fill_value=0)
+ required=[(0,0),(0,1),(1,0),(1,1)]
+ for c in required:
+  if c not in support.columns:support[c]=0
+ good=support[(support[required]>=5).all(axis=1)].index
+ d=d[d.fe.isin(good)].copy()
+ if len(d)<1000 or d.fe.nunique()<20:return None
+ d['M']=d['M'].astype(float);d['T']=d['T'].astype(float);d['z']=d.enrol-CUT;d['Tz']=d['T']*d['z'];d['TM']=d['T']*d['M'];d['zM']=d['z']*d['M'];d['TzM']=d['T']*d['z']*d['M'];d['y']=(d.receipt>=75000).astype(float);d['w']=np.maximum(0,1-np.abs(d.z)/BW)
  cols=['y','T','z','Tz','M','TM','zM','TzM']
  for base in ('management','rural_urban','school_category'):
   vals=pd.to_numeric(d[base],errors='coerce').fillna(-999).astype(int);cats=sorted(vals.unique())
   for c in cats[1:]:name=f'cv_{base}_{c}';d[name]=(vals==c).astype(float);cols.append(name)
  d=weighted_demean(d,cols,'fe','w');xcols=['T','z','Tz','M','TM','zM','TzM']+[c for c in cols if c.startswith('cv_')];fit=cluster_fit(d[xcols].to_numpy(float),d.y.to_numpy(float),d.w.to_numpy(float),d.state.astype(str).to_numpy())
  if fit is None:return None
- j=xcols.index('TM');b=float(fit.params[j]);se=float(fit.bse[j]);p=float(fit.pvalues[j]);return {'majority_minus_nonmajority_first_stage':b,'se':se,'p':p,'ci_low':b-1.96*se,'ci_high':b+1.96*se,'n':int(fit.nobs),'states':int(d.state.nunique()),'districts':int(d.district.nunique())}
+ j=xcols.index('TM');b=float(fit.params[j]);se=float(fit.bse[j]);p=float(fit.pvalues[j]);return {'majority_minus_nonmajority_first_stage':b,'se':se,'p':p,'ci_low':b-1.96*se,'ci_high':b+1.96*se,'n':int(fit.nobs),'states':int(d.state.nunique()),'districts':int(d.district.nunique()),'overlap_rule':'at least 5 observations in each of M0/T0, M0/T1, M1/T0, M1/T1 within district'}
 
 def raw_levels(d):
  out={}
