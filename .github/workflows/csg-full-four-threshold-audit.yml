@@ -40,6 +40,7 @@ jobs:
           ASSIGN_YEAR: ${{ matrix.assignment_year }}
         run: |
           cat studies/composite_school_grant/full_formula_audit/parts/run_threshold_cohort.* > /tmp/run_threshold_cohort.py
+          sed -i "s/vce='cr3'/vce='nn'/g; s/rdrobust_cr3/rdrobust_nn_/g" /tmp/run_threshold_cohort.py
           python /tmp/run_threshold_cohort.py
       - name: Upload aggregate cohort results only
         if: always()
