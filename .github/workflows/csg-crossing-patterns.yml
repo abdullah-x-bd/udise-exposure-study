@@ -1,0 +1,42 @@
+name: CSG threshold crossing patterns
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths:
+      - "studies/composite_school_grant/enrolment_integrity/run_minimal_crossing.py"
+      - ".github/workflows/csg-crossing-patterns.yml"
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  cohort:
+    strategy:
+      fail-fast: false
+      matrix:
+        start_year: ["2018-19","2019-20","2020-21","2021-22","2022-23","2023-24"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      START_YEAR: ${{ matrix.start_year }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - run: python -m pip install "pandas>=2.2,<3"
+      - run: python studies/composite_school_grant/enrolment_integrity/run_minimal_crossing.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-crossing-patterns-${{ matrix.start_year }}
+          path: |
+            studies/composite_school_grant/outputs/minimal_crossing/${{ matrix.start_year }}/*.csv
+            studies/composite_school_grant/outputs/minimal_crossing/${{ matrix.start_year }}/*.md
+          retention-days: 14
