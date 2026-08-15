@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8' ?>
-<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='763.20pt' height='561.60pt' viewBox='0 0 763.20 561.60'>
+<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='878.40pt' height='554.40pt' viewBox='0 0 878.40 554.40'>
 <g class='svglite'>
 <defs>
   <style type='text/css'><![CDATA[
@@ -21,42 +21,62 @@
 </defs>
 <rect width='100%' height='100%' style='stroke: none; fill: #FFFFFF;'/>
 <defs>
-  <clipPath id='cpMC4wMHw3NjMuMjB8MC4wMHw1NjEuNjA='>
-    <rect x='0.00' y='0.00' width='763.20' height='561.60' />
+  <clipPath id='cpMC4wMHw4NzguNDB8MC4wMHw1NTQuNDA='>
+    <rect x='0.00' y='0.00' width='878.40' height='554.40' />
   </clipPath>
 </defs>
-<g clip-path='url(#cpMC4wMHw3NjMuMjB8MC4wMHw1NjEuNjA=)'>
-<rect x='0.000000000000064' y='-0.00000000000011' width='763.20' height='561.60' style='stroke-width: 0.00; stroke: none;' />
-<rect x='159.97' y='216.27' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #F3F4F5;' />
-<rect x='458.58' y='216.27' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #DD8851;' />
-<rect x='159.97' y='298.66' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #F3DBCE;' />
-<rect x='458.58' y='298.66' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #CE6921;' />
-<rect x='159.97' y='381.06' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #F2D8C9;' />
-<rect x='458.58' y='381.06' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #CB6315;' />
-<rect x='159.97' y='463.46' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #F1CBB7;' />
-<rect x='458.58' y='463.46' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #CD661B;' />
-<text x='273.44' y='255.42' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='30.48px' lengthAdjust='spacingAndGlyphs'>≈0</text>
-<text x='572.05' y='255.42' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #FFFFFF; font-family: "Liberation Sans";' textLength='69.81px' lengthAdjust='spacingAndGlyphs'>+24.7</text>
-<text x='273.44' y='337.82' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='54.47px' lengthAdjust='spacingAndGlyphs'>+5.7</text>
-<text x='572.05' y='337.82' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #FFFFFF; font-family: "Liberation Sans";' textLength='69.81px' lengthAdjust='spacingAndGlyphs'>+31.8</text>
-<text x='273.44' y='420.22' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='54.47px' lengthAdjust='spacingAndGlyphs'>+6.4</text>
-<text x='572.05' y='420.22' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #FFFFFF; font-family: "Liberation Sans";' textLength='69.81px' lengthAdjust='spacingAndGlyphs'>+33.2</text>
-<text x='273.44' y='502.61' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='54.47px' lengthAdjust='spacingAndGlyphs'>+9.1</text>
-<text x='572.05' y='502.61' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #FFFFFF; font-family: "Liberation Sans";' textLength='69.81px' lengthAdjust='spacingAndGlyphs'>+32.5</text>
-<line x1='327.19' y1='186.61' x2='518.30' y2='186.61' style='stroke-width: 1.81; stroke: #687078; stroke-linecap: butt;' />
-<polygon points='509.57,191.65 518.30,186.61 509.57,181.57 ' style='stroke-width: 1.81; stroke: #687078; stroke-linecap: butt; fill: #687078;' />
-<text x='422.75' y='173.31' text-anchor='middle' style='font-size: 11.67px; font-weight: bold;fill: #687078; font-family: "Liberation Sans";' textLength='229.31px' lengthAdjust='spacingAndGlyphs'>UDISE reports the previous financial year</text>
-<text x='273.44' y='135.15' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='102.19px' lengthAdjust='spacingAndGlyphs'>GRANT YEAR</text>
-<text x='273.44' y='153.75' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='17.67px' lengthAdjust='spacingAndGlyphs'>+2</text>
-<text x='572.05' y='135.15' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='118.84px' lengthAdjust='spacingAndGlyphs'>UDISE RECORD</text>
-<text x='572.05' y='153.75' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='17.67px' lengthAdjust='spacingAndGlyphs'>+3</text>
-<text x='72.03' y='498.46' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='60.38px' lengthAdjust='spacingAndGlyphs'>2022–23</text>
-<text x='72.03' y='416.06' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='60.38px' lengthAdjust='spacingAndGlyphs'>2021–22</text>
-<text x='72.03' y='333.66' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='60.38px' lengthAdjust='spacingAndGlyphs'>2020–21</text>
-<text x='72.03' y='251.27' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='60.38px' lengthAdjust='spacingAndGlyphs'>2019–20</text>
-<text x='124.14' y='77.61' style='font-size: 12.50px;fill: #111111; font-family: "Liberation Sans";' textLength='385.47px' lengthAdjust='spacingAndGlyphs'>250 → 251 pupils moves the statutory CSG band ₹50,000 → ₹75,000</text>
-<text x='124.14' y='96.36' style='font-size: 12.50px;fill: #111111; font-family: "Liberation Sans";' textLength='401.77px' lengthAdjust='spacingAndGlyphs'>Jump in the chance UDISE records receipt ≥ ₹75,000, percentage points</text>
-<text x='124.14' y='54.44' style='font-size: 27.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='482.39px' lengthAdjust='spacingAndGlyphs'>THE GRANT SIGNAL APPEARS AT +3</text>
+<g clip-path='url(#cpMC4wMHw4NzguNDB8MC4wMHw1NTQuNDA=)'>
+<rect x='0.00' y='-0.00000000000011' width='878.40' height='554.40' style='stroke-width: 1.07; stroke: none; fill: #FFFFFF;' />
+</g>
+<defs>
+  <clipPath id='cpMTA1LjE4fDgzMi41N3wxMjAuNjJ8NDc2LjYw'>
+    <rect x='105.18' y='120.62' width='727.39' height='355.98' />
+  </clipPath>
+</defs>
+<g clip-path='url(#cpMTA1LjE4fDgzMi41N3wxMjAuNjJ8NDc2LjYw)'>
+<polyline points='105.18,476.60 105.18,120.62 ' style='stroke-width: 1.17; stroke: #ECEEEF; stroke-linecap: butt;' />
+<polyline points='276.74,476.60 276.74,120.62 ' style='stroke-width: 1.17; stroke: #ECEEEF; stroke-linecap: butt;' />
+<polyline points='448.29,476.60 448.29,120.62 ' style='stroke-width: 1.17; stroke: #ECEEEF; stroke-linecap: butt;' />
+<polyline points='619.84,476.60 619.84,120.62 ' style='stroke-width: 1.17; stroke: #ECEEEF; stroke-linecap: butt;' />
+<polyline points='791.40,476.60 791.40,120.62 ' style='stroke-width: 1.17; stroke: #ECEEEF; stroke-linecap: butt;' />
+<rect x='269.87' y='143.91' width='68.62' height='332.70' style='stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #F1D6C3; fill-opacity: 0.45;' />
+<line x1='274.68' y1='185.50' x2='791.40' y2='185.50' style='stroke-width: 6.40; stroke: #F2F3F4;' />
+<line x1='323.47' y1='268.67' x2='791.40' y2='268.67' style='stroke-width: 6.40; stroke: #F2F3F4;' />
+<line x1='333.07' y1='351.84' x2='791.40' y2='351.84' style='stroke-width: 6.40; stroke: #F2F3F4;' />
+<line x1='328.34' y1='435.02' x2='791.40' y2='435.02' style='stroke-width: 6.40; stroke: #F2F3F4;' />
+<circle cx='274.68' cy='185.50' r='7.18' style='stroke-width: 0.71; stroke: #C75B00; fill: #C75B00;' />
+<circle cx='323.47' cy='268.67' r='7.18' style='stroke-width: 0.71; stroke: #C75B00; fill: #C75B00;' />
+<circle cx='333.07' cy='351.84' r='7.18' style='stroke-width: 0.71; stroke: #C75B00; fill: #C75B00;' />
+<circle cx='328.34' cy='435.02' r='7.18' style='stroke-width: 0.71; stroke: #C75B00; fill: #C75B00;' />
+<text x='274.68' y='174.83' text-anchor='middle' style='font-size: 12.52px; font-weight: bold;fill: #C75B00; font-family: "Liberation Sans";' textLength='43.11px' lengthAdjust='spacingAndGlyphs'>24.7 pp</text>
+<text x='323.47' y='258.00' text-anchor='middle' style='font-size: 12.52px; font-weight: bold;fill: #C75B00; font-family: "Liberation Sans";' textLength='43.11px' lengthAdjust='spacingAndGlyphs'>31.8 pp</text>
+<text x='333.07' y='341.18' text-anchor='middle' style='font-size: 12.52px; font-weight: bold;fill: #C75B00; font-family: "Liberation Sans";' textLength='43.11px' lengthAdjust='spacingAndGlyphs'>33.2 pp</text>
+<text x='328.34' y='424.35' text-anchor='middle' style='font-size: 12.52px; font-weight: bold;fill: #C75B00; font-family: "Liberation Sans";' textLength='43.11px' lengthAdjust='spacingAndGlyphs'>32.5 pp</text>
+<circle cx='791.40' cy='185.50' r='9.14' style='stroke-width: 2.06; stroke: #111111; fill: #FFFFFF;' />
+<circle cx='791.40' cy='268.67' r='9.14' style='stroke-width: 2.06; stroke: #111111; fill: #FFFFFF;' />
+<circle cx='791.40' cy='351.84' r='9.14' style='stroke-width: 2.06; stroke: #111111; fill: #FFFFFF;' />
+<circle cx='791.40' cy='435.02' r='9.14' style='stroke-width: 2.06; stroke: #111111; fill: #FFFFFF;' />
+<line x1='791.40' y1='476.60' x2='791.40' y2='120.62' style='stroke-width: 1.71; stroke: #B6BBC0; stroke-dasharray: 9.10,9.10; stroke-linecap: butt;' />
+<text x='304.18' y='160.98' text-anchor='middle' style='font-size: 13.37px; font-weight: bold;fill: #C75B00; font-family: "Liberation Sans";' textLength='136.31px' lengthAdjust='spacingAndGlyphs'>OBSERVED IN UDISE</text>
+<text x='791.40' y='153.65' text-anchor='middle' style='font-size: 12.09px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='38.27px' lengthAdjust='spacingAndGlyphs'>100 pp</text>
+<text x='791.40' y='167.43' text-anchor='middle' style='font-size: 12.09px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='163.47px' lengthAdjust='spacingAndGlyphs'>MECHANICAL BENCHMARK</text>
+<text x='558.08' y='306.72' text-anchor='middle' style='font-size: 15.65px; font-weight: bold;fill: #B6BBC0; font-family: "Liberation Sans";' textLength='235.39px' lengthAdjust='spacingAndGlyphs'>≈70 pp of the mechanical signal</text>
+<text x='558.08' y='324.56' text-anchor='middle' style='font-size: 15.65px; font-weight: bold;fill: #B6BBC0; font-family: "Liberation Sans";' textLength='231.98px' lengthAdjust='spacingAndGlyphs'>is not reflected in this indicator</text>
+</g>
+<g clip-path='url(#cpMC4wMHw4NzguNDB8MC4wMHw1NTQuNDA=)'>
+<text x='100.25' y='440.18' text-anchor='end' style='font-size: 15.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='58.41px' lengthAdjust='spacingAndGlyphs'>2022–23</text>
+<text x='100.25' y='357.01' text-anchor='end' style='font-size: 15.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='58.41px' lengthAdjust='spacingAndGlyphs'>2021–22</text>
+<text x='100.25' y='273.83' text-anchor='end' style='font-size: 15.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='58.41px' lengthAdjust='spacingAndGlyphs'>2020–21</text>
+<text x='100.25' y='190.66' text-anchor='end' style='font-size: 15.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='58.41px' lengthAdjust='spacingAndGlyphs'>2019–20</text>
+<text x='105.18' y='489.45' text-anchor='middle' style='font-size: 11.50px;fill: #666666; font-family: "Liberation Sans";' textLength='22.36px' lengthAdjust='spacingAndGlyphs'>0 pp</text>
+<text x='276.74' y='489.45' text-anchor='middle' style='font-size: 11.50px;fill: #666666; font-family: "Liberation Sans";' textLength='28.75px' lengthAdjust='spacingAndGlyphs'>25 pp</text>
+<text x='448.29' y='489.45' text-anchor='middle' style='font-size: 11.50px;fill: #666666; font-family: "Liberation Sans";' textLength='28.75px' lengthAdjust='spacingAndGlyphs'>50 pp</text>
+<text x='619.84' y='489.45' text-anchor='middle' style='font-size: 11.50px;fill: #666666; font-family: "Liberation Sans";' textLength='28.75px' lengthAdjust='spacingAndGlyphs'>75 pp</text>
+<text x='791.40' y='489.45' text-anchor='middle' style='font-size: 11.50px;fill: #666666; font-family: "Liberation Sans";' textLength='35.14px' lengthAdjust='spacingAndGlyphs'>100 pp</text>
+<text x='105.18' y='74.98' style='font-size: 13.00px;fill: #111111; font-family: "Liberation Sans";' textLength='404.64px' lengthAdjust='spacingAndGlyphs'>250 → 251 pupils moves the statutory CSG band ₹50,000 → ₹75,000.</text>
+<text x='105.18' y='94.01' style='font-size: 13.00px;fill: #111111; font-family: "Liberation Sans";' textLength='526.58px' lengthAdjust='spacingAndGlyphs'>At the correctly aligned +3 record, the discontinuity is still only 24.7–33.2 percentage points.</text>
+<text x='105.18' y='52.45' style='font-size: 27.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='562.14px' lengthAdjust='spacingAndGlyphs'>THE RULE IS SHARP. THE RECORD IS NOT.</text>
+<text x='105.18' y='522.48' style='font-size: 9.80px;fill: #686868; font-family: "Liberation Sans";' textLength='346.50px' lengthAdjust='spacingAndGlyphs'>100 pp is a mechanical-record benchmark, not a grant-delivery compliance rate.</text>
 </g>
 </g>
 </svg>
