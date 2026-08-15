@@ -22,6 +22,16 @@ def ident(c):
     return x
 
 
+def cluster_expr(c,alias):
+    for name in ('state','state_id','state_code','state_cd'):
+        r=ref(c,name,alias)
+        if r:return f"CAST({r} AS VARCHAR)"
+    for name in ('district','district_id','district_code','district_cd'):
+        r=ref(c,name,alias)
+        if r:return f"'district:' || CAST({r} AS VARCHAR)"
+    raise RuntimeError('no usable cluster field')
+
+
 def e8expr(c):
     q=[f"COALESCE({nref(c,f'c{k}_{s}')},0)" for k in range(1,9) for s in ('b','g') if f'c{k}_{s}' in c]
     return ' + '.join(q)
@@ -45,13 +55,14 @@ def pull_last(r,attr):
 
 
 def fit(y,x,d,state,fuzzy=False):
-    m=np.isfinite(y)&np.isfinite(x)&np.isfinite(d)&np.isfinite(state)&(np.abs(x-CUT)<=30)
-    y=y[m];x=x[m];d=d[m];state=state[m]
-    if len(y)<500:return None
+    state=pd.Series(state,dtype='object')
+    m=np.isfinite(y)&np.isfinite(x)&np.isfinite(d)&state.notna().to_numpy()&(np.abs(x-CUT)<=30)
+    y=y[m];x=x[m];d=d[m];state=state.to_numpy()[m]
+    if len(y)<500 or pd.Series(state).nunique()<10:return None
     kw=dict(y=y,x=x,c=CUT,p=1,q=2,kernel='tri',h=30,b=45,cluster=pd.Categorical(state).codes,vce='cr3',masspoints='adjust',bwcheck=15)
     if fuzzy:kw['fuzzy']=d
     r=rdrobust(**kw);ci=pull_last(r,'ci')
-    return {'tau':pull_last(r,'coef'),'se':pull_last(r,'se'),'p':pull_last(r,'pv'),'ci_low':ci[0],'ci_high':ci[1],'n':len(y),'first_stage_mean_treatment':float(np.mean(d))}
+    return {'tau':pull_last(r,'coef'),'se':pull_last(r,'se'),'p':pull_last(r,'pv'),'ci_low':ci[0],'ci_high':ci[1],'n':len(y),'first_stage_mean_treatment':float(np.mean(d)),'clusters':int(pd.Series(state).nunique())}
 
 
 def main():
@@ -59,10 +70,10 @@ def main():
     con=duckdb.connect();con.execute('PRAGMA threads=4');con.execute("PRAGMA memory_limit='10GB'")
     with tempfile.TemporaryDirectory(prefix=f'fuzzy_{ay}_') as td:
         root=Path(td)
-        en=src(extract(repo,tok,ay,'enrolment_1',root));p1=src(extract(repo,tok,ay,'profile_1',root));fac=src(extract(repo,tok,ay,'facility',root));ec,pc,fc=cols(con,en),cols(con,p1),cols(con,fac);ei,pi,fi=ident(ec),ident(pc),ident(fc);es,filt,_=total_enrolment_setup(con,en,ec);e8=e8expr(ec);bc=component_exprs(fc,'f')
+        en=src(extract(repo,tok,ay,'enrolment_1',root));p1=src(extract(repo,tok,ay,'profile_1',root));fac=src(extract(repo,tok,ay,'facility',root));ec,pc,fc=cols(con,en),cols(con,p1),cols(con,fac);ei,pi,fi=ident(ec),ident(pc);es,filt,_=total_enrolment_setup(con,en,ec);e8=e8expr(ec);bc=component_exprs(fc,'f');ce=cluster_expr(pc,'p')
         bsel=','.join(f'{v} b_{k}' for k,v in bc.items() if k in ASSETS)
         con.execute(f"CREATE TEMP TABLE ee AS SELECT CAST({qid(ei)} AS VARCHAR) pseudocode,SUM({es}) enrol,SUM({e8}) enrol18 FROM {en} WHERE {filt} GROUP BY 1")
-        con.execute(f"CREATE TEMP TABLE base AS SELECT e.pseudocode,e.enrol,e.enrol18,{nref(pc,'state','p')} state,{bsel} FROM ee e JOIN {p1} p ON e.pseudocode=CAST(p.{qid(pi)} AS VARCHAR) LEFT JOIN {fac} f ON e.pseudocode=CAST(f.{qid(fi)} AS VARCHAR) WHERE {nref(pc,'managment','p')} IN {GOV} AND e.enrol BETWEEN 180 AND 321")
+        con.execute(f"CREATE TEMP TABLE base AS SELECT e.pseudocode,e.enrol,e.enrol18,{ce} state,{bsel} FROM ee e JOIN {p1} p ON e.pseudocode=CAST(p.{qid(pi)} AS VARCHAR) LEFT JOIN {fac} f ON e.pseudocode=CAST(f.{qid(fi)} AS VARCHAR) WHERE {nref(pc,'managment','p')} IN {GOV} AND e.enrol BETWEEN 180 AND 321")
         gp=src(extract(repo,tok,gy,'profile_2',root));gc=cols(con,gp);gi=ident(gc);con.execute(f"CREATE TEMP TABLE grant AS SELECT CAST({qid(gi)} AS VARCHAR) pseudocode,{nref(gc,'grants_receipt')} receipt FROM {gp}")
         for oy in future:
             of=src(extract(repo,tok,oy,'facility',root));oc=cols(con,of);oi=ident(oc);cc=component_exprs(oc,'o');osel=','.join(f'{v} o_{k}' for k,v in cc.items() if k in ASSETS)
@@ -70,7 +81,7 @@ def main():
             d=con.execute('SELECT b.*,g.receipt,f.* EXCLUDE(pseudocode) FROM base b LEFT JOIN grant g USING(pseudocode) LEFT JOIN fut f USING(pseudocode)').df()
             rec=d.receipt.to_numpy(float);t=np.where(np.isfinite(rec),(rec>=75000).astype(float),np.nan)
             det=[];up=[]
-            for i,r in d.iterrows():
+            for _,r in d.iterrows():
                 aa=[];bb=[]
                 for k in ASSETS:
                     bv=r.get('b_'+k);ov=r.get('o_'+k)
@@ -80,8 +91,7 @@ def main():
                 det.append(np.mean(aa) if aa else np.nan);up.append(np.mean(bb) if bb else np.nan)
             d['deterioration']=det;d['upgrade']=up
             for sample,mask in [('all',np.ones(len(d),bool)),('pm220',d.enrol18.fillna(99999).to_numpy(float)<=220),('pm200',d.enrol18.fillna(99999).to_numpy(float)<=200)]:
-                z=d.loc[mask];tt=t[mask];x=z.enrol.to_numpy(float);st=z.state.to_numpy(float)
-                # Explicit first stage for the exact sample/outcome-complete set is obtained by sharp RD on treatment.
+                z=d.loc[mask];tt=t[mask];x=z.enrol.to_numpy(float);st=z.state.to_numpy(dtype=object)
                 for outcome in ['deterioration','upgrade']:
                     y=z[outcome].to_numpy(float)
                     m=np.isfinite(y)&np.isfinite(tt)
@@ -92,7 +102,7 @@ def main():
                     if fs:rows.append({'assignment_year':ay,'grant_year':gy,'outcome_year':oy,'event_time_since_grant':YEARS.index(oy)-YEARS.index(gy),'sample':sample,'outcome':outcome,'estimand':'first_stage_receipt_ge75000',**fs})
                     if rf:rows.append({'assignment_year':ay,'grant_year':gy,'outcome_year':oy,'event_time_since_grant':YEARS.index(oy)-YEARS.index(gy),'sample':sample,'outcome':outcome,'estimand':'reduced_form_threshold',**rf})
                     if fr:rows.append({'assignment_year':ay,'grant_year':gy,'outcome_year':oy,'event_time_since_grant':YEARS.index(oy)-YEARS.index(gy),'sample':sample,'outcome':outcome,'estimand':'fuzzy_RD_reported_high_receipt',**fr})
-            print(json.dumps({'assignment':ay,'grant_year':gy,'outcome_year':oy,'n':len(d)}),flush=True)
+            print(json.dumps({'assignment':ay,'grant_year':gy,'outcome_year':oy,'n':len(d),'clusters':int(d.state.nunique(dropna=True))}),flush=True)
     write(out/'fuzzy_results.csv',rows)
     md=['# Fuzzy RD sensitivity '+ay,'',f'Assignment enrolment {ay}; documented-style +2 grant year {gy}.','', 'Treatment is UDISE-reported receipt >= Rs 75,000, not independently audited PFMS receipt.']
     for r in rows:
