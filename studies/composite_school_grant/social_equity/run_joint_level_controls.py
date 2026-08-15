@@ -19,11 +19,11 @@ def target(e):
  e=np.asarray(e,float);return np.select([(e>=31)&(e<=100),(e>=101)&(e<=250),(e>=251)&(e<=1000),e>1000],[25000.,50000.,75000.,100000.],default=np.nan)
 
 def fit(d):
- cols=[f'prev_{g}_share' for g in VARS];keep=np.isfinite(d.meet_target)
+ cols=[f'prev_{g}_share' for g in VARS];keep=np.isfinite(d.meet_target)&np.isfinite(d.enrol)&(d.enrol>0)
  for c in cols:keep &= np.isfinite(d[c])
  x=d[keep].copy()
  if len(x)<5000:return []
- x['y']=x.meet_target.astype(float);x['w']=1.;base=['y'];xcols=[]
+ x['y']=x.meet_target.astype(float);x['w']=1.;x['log_enrol']=np.log(x.enrol.astype(float));base=['y','log_enrol'];xcols=['log_enrol']
  for g,c in zip(VARS,cols):x[g]=x[c].astype(float);base.append(g);xcols.append(g)
  for b in ('management','rural_urban','school_category'):
   v=pd.to_numeric(x[b],errors='coerce').fillna(-999).astype(int);cats=sorted(v.unique())
@@ -31,8 +31,8 @@ def fit(d):
  x['fe']=x.state.astype(str)+'|'+x.district.astype(str)+'|'+x.target.astype(int).astype(str);x=weighted_demean(x,base,'fe','w');fit=cluster_fit(x[xcols].to_numpy(float),x.y.to_numpy(float),x.w.to_numpy(float),x.state.astype(str).to_numpy())
  if fit is None:return []
  out=[]
- for j,g in enumerate(VARS):
-  b=float(fit.params[j]);se=float(fit.bse[j]);p=float(fit.pvalues[j]);out.append({'group':g,'coef_per_10pp':b*.1,'se_per_10pp':se*.1,'p':p,'ci_low_per_10pp':(b-1.96*se)*.1,'ci_high_per_10pp':(b+1.96*se)*.1,'n':int(fit.nobs),'states':int(x.state.nunique()),'district_band_fe':int(x.fe.nunique())})
+ for g in VARS:
+  j=xcols.index(g);b=float(fit.params[j]);se=float(fit.bse[j]);p=float(fit.pvalues[j]);out.append({'group':g,'coef_per_10pp':b*.1,'se_per_10pp':se*.1,'p':p,'ci_low_per_10pp':(b-1.96*se)*.1,'ci_high_per_10pp':(b+1.96*se)*.1,'n':int(fit.nobs),'states':int(x.state.nunique()),'district_band_fe':int(x.fe.nunique()),'controls':'log enrolment + management + rural/urban + school category; district x nominal-band FE'})
  return out
 
 def main():
