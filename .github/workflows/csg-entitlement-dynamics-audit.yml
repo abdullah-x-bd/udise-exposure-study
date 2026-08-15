@@ -1,0 +1,103 @@
+name: CSG entitlement dynamics audit
+
+on:
+  push:
+    branches:
+      - research/composite-school-grant-study
+    paths:
+      - ".github/workflows/csg-entitlement-dynamics-audit.yml"
+      - "studies/composite_school_grant/entitlement_dynamics/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: csg-entitlement-dynamics-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  spells:
+    name: Entitlement spells, attainment, fallback and durability
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install analysis dependencies
+        run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3" "numpy>=2,<3" "scipy>=1.13,<2" "statsmodels>=0.14,<1" "rdrobust>=1.3,<2" "matplotlib>=3.10,<4"
+      - name: Run comprehensive entitlement-spell audit
+        run: python studies/composite_school_grant/entitlement_dynamics/run_spell_dynamics.py
+      - name: Upload spell-dynamics results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: csg-entitlement-dynamics-spells
+          path: studies/composite_school_grant/outputs/entitlement_dynamics/spells/
+          retention-days: 14
+
+  transmission:
+    name: State-by-threshold T+N transmission dynamics
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install analysis dependencies
+        run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3" "numpy>=2,<3" "scipy>=1.13,<2" "statsmodels>=0.14,<1" "rdrobust>=1.3,<2" "matplotlib>=3.10,<4"
+      - name: Run unconditional dynamic transmission audit
+        run: python studies/composite_school_grant/entitlement_dynamics/run_transmission_dynamics.py
+      - name: Upload transmission-dynamics results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: csg-entitlement-dynamics-transmission
+          path: studies/composite_school_grant/outputs/entitlement_dynamics/transmission/
+          retention-days: 14
+
+  synthesize:
+    name: Synthesize administrative dynamics audit
+    needs: [spells, transmission]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install synthesis dependencies
+        run: python -m pip install "pandas>=2.2,<3" "numpy>=2,<3"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: csg-entitlement-dynamics-*
+          path: inputs
+          merge-multiple: false
+      - name: Inventory inputs
+        run: |
+          find inputs -maxdepth 2 -type f | sort
+      - name: Synthesize
+        env:
+          INPUT_ROOT: inputs
+        run: python studies/composite_school_grant/entitlement_dynamics/synthesize_dynamics.py
+      - name: Upload definitive dynamics audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: csg-entitlement-dynamics-definitive
+          path: studies/composite_school_grant/outputs/entitlement_dynamics/final/
+          retention-days: 14
