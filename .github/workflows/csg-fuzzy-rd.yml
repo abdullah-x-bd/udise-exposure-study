@@ -37,6 +37,7 @@ jobs:
         run: |
           sed -i "s/es,filt=total_enrolment_setup/es,filt,_=total_enrolment_setup/g" studies/composite_school_grant/fuzzy_rd/run_fuzzy.py
           sed -i "s/vce='cr3'/vce='nn'/g" studies/composite_school_grant/fuzzy_rd/run_fuzzy.py
+          sed -i 's/ FROM {of}")/ FROM {of} o")/' studies/composite_school_grant/fuzzy_rd/run_fuzzy.py
       - name: Run fuzzy RD sensitivity
         run: python studies/composite_school_grant/fuzzy_rd/run_fuzzy.py
       - uses: actions/upload-artifact@v4
