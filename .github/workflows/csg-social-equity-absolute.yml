@@ -31,6 +31,11 @@ jobs:
           cache: pip
       - run: python -m pip install -e .
       - run: python -m pip install "pandas>=2.2,<3" "statsmodels>=0.14,<1"
+      - name: Enforce strict majority definitions
+        run: |
+          sed -i 's/prev_muslim_share>=\.5/prev_muslim_share>.5/g' studies/composite_school_grant/social_equity/run_absolute_levels.py
+          sed -i "s/s>=\.5/s>.5/g" studies/composite_school_grant/social_equity/run_absolute_levels.py
+          sed -i 's/m=g.prev_muslim_share>=\.5/m=g.prev_muslim_share>.5/g' studies/composite_school_grant/social_equity/run_absolute_levels.py
       - run: python studies/composite_school_grant/social_equity/run_absolute_levels.py
       - uses: actions/upload-artifact@v4
         if: always()
