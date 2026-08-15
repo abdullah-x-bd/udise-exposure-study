@@ -48,7 +48,6 @@ def km_curve(panel,ids,group,state):
         if n_risk==0:break
         if group=='crosser':eligible=q.enrol>=251
         else:eligible=q.enrol<=250
-        # Eligibility changes are censoring events before financial recognition at that lag.
         cens=set(q.loc[~eligible.fillna(False),'pseudocode'].astype(str))
         qr=q[eligible.fillna(False)].copy();events=set(qr.loc[pd.to_numeric(qr.receipt,errors='coerce')>=75000,'pseudocode'].astype(str))
         denom=max(1,n_risk-len(cens));haz=len(events)/denom;surv*=1-haz;cum=1-surv
@@ -72,7 +71,7 @@ def main():
     ay=os.environ['ASSIGN_YEAR'];ai=YEARS.index(ay);prev=YEARS[ai-1];repo=os.environ['HF_DATASET_REPO'];tok=os.environ['HF_TOKEN'];out=Path(f'studies/composite_school_grant/outputs/crossing_recognition/{ay}');out.mkdir(parents=True,exist_ok=True);con=duckdb.connect();con.execute("PRAGMA memory_limit='10GB'")
     with tempfile.TemporaryDirectory(prefix=f'crossrec_{ay}_') as td:
         root=Path(td);em1=load_enrol(con,repo,tok,prev,root).rename(columns={'enrol':'enrol_prev'});e0=load_enrol(con,repo,tok,ay,root).rename(columns={'enrol':'enrol_now'});p1=src(extract(repo,tok,ay,'profile_1',root));pc=cols(con,p1);pi=ident(pc);st=field(pc,['state','state_id','state_code','state_cd']);mg=nref(pc,'managment','p')
-        prof=con.execute(f"SELECT CAST({qid(pi)} AS VARCHAR) pseudocode,CAST({st} AS VARCHAR) state,CAST({mg} AS INTEGER) management FROM {p1}").df();base=em1.merge(e0,on='pseudocode').merge(prof,on='pseudocode');base=base[base.management.isin(BROAD)].copy();base['group']=np.where((base.enrol_prev>=221)&(base.enrol_prev<=250)&(base.enrol_now>=251)&(base.enrol_now<=280),'crosser',np.where((base.enrol_prev>=221)&(base.enrol_prev<=250)&(base.enrol_now>=221)&(base.enrol_now<=250),'control','other'));base=base[base.group!='other'].copy()
+        prof=con.execute(f"SELECT CAST(p.{qid(pi)} AS VARCHAR) pseudocode,CAST({st} AS VARCHAR) state,CAST({mg} AS INTEGER) management FROM {p1} p").df();base=em1.merge(e0,on='pseudocode').merge(prof,on='pseudocode');base=base[base.management.isin(BROAD)].copy();base['group']=np.where((base.enrol_prev>=221)&(base.enrol_prev<=250)&(base.enrol_now>=251)&(base.enrol_now<=280),'crosser',np.where((base.enrol_prev>=221)&(base.enrol_prev<=250)&(base.enrol_now>=221)&(base.enrol_now<=250),'control','other'));base=base[base.group!='other'].copy()
         pieces=[]
         for oi in range(ai,len(YEARS)):
             oy=YEARS[oi];lag=oi-ai;e=load_enrol(con,repo,tok,oy,root);r=load_receipt(con,repo,tok,oy,root);q=base[['pseudocode','state','group']].merge(e,on='pseudocode',how='left').merge(r,on='pseudocode',how='left');q['outcome_year']=oy;q['lag']=lag;pieces.append(q)
@@ -89,7 +88,6 @@ def main():
     summary=summarize(curves)
     for r in summary:r['assignment_year']=ay
     write_csv(out/'time_to_first_higher_band_report.csv',curves);write_csv(out/'recognition_time_summary.csv',summary)
-    # side-by-side state comparison at each lag where both groups exist
     d=pd.DataFrame(curves);diff=[]
     if len(d):
         a=d[d.group=='crosser'];b=d[d.group=='control'];m=a.merge(b,on=['assignment_year','state','lag'],suffixes=('_crosser','_control'))
