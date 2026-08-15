@@ -51,8 +51,8 @@ jobs:
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/fidelity.csv
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/bandwidth_sensitivity.csv
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/state_response.csv
-            studies/composite_schoool_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/social_heterogeneity.csv
-            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/predetermined_balance.csv
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/social_heterogeneity.csv
+            studies/composite_schoool_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/predetermined_balance.csv
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/fuzzy_facility.csv
             studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/raw_local_rates.csv
             studies/composite_schoool_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/stacked_formula.csv
