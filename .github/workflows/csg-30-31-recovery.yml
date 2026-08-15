@@ -1,0 +1,134 @@
+name: CSG 30/31 recovery and definitive synthesis
+
+on:
+  push:
+    branches:
+      - research/composite-school-grant-study
+    paths:
+      - ".github/workflows/csg-30-31-recovery.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  recover_30_31:
+    name: ${{ matrix.assignment_year }} · 30_31 recovery
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        assignment_year: ["2019-20", "2020-21", "2021-22", "2022-23"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install analysis dependencies
+        run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3" "scipy>=1.13,<2" "statsmodels>=0.14,<1" "rdrobust>=1.3,<2"
+      - name: Run 30/31 cohort audit
+        env:
+          ASSIGN_YEAR: ${{ matrix.assignment_year }}
+          THRESHOLD_LABEL: 30_31
+        run: |
+          cat studies/composite_school_grant/full_formula_audit/parts/run_threshold_cohort.* > /tmp/run_threshold_cohort.py
+          sed -i "s/vce='cr3'/vce='nn'/g; s/rdrobust_cr3/rdrobust_nn_/g" /tmp/run_threshold_cohort.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/run_threshold_cohort.py')
+          s=p.read_text()
+          s=s.replace('for spec in SCHEDULE:', "for spec in [s for s in SCHEDULE if s['label']==os.environ['THRESHOLD_LABEL']]:")
+          p.write_text(s)
+          PY
+          python /tmp/run_threshold_cohort.py
+      - name: Upload recovered 30/31 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-formula-cohort-${{ matrix.assignment_year }}-30_31
+          path: |
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/timing.csv
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/fidelity.csv
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/bandwidth_sensitivity.csv
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/state_response.csv
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/social_heterogeneity.csv
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/predetermined_balance.csv
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/fuzzy_facility.csv
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/raw_local_rates.csv
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/stacked_formula.csv
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/validation.json
+            studies/composite_school_grant/outputs/full_formula_audit/cohort_${{ matrix.assignment_year }}/RESULTS.md
+          retention-days: 14
+
+  synthesize_recovered:
+    name: Definitive synthesis from preserved + recovered artifacts
+    needs: [recover_30_31]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install synthesis dependencies
+        run: python -m pip install "pandas>=2.2,<3" "numpy>=2,<3" "matplotlib>=3.10,<4" "statsmodels>=0.14,<1"
+      - name: Download 13 preserved artifacts from run 31892157223
+        uses: actions/download-artifact@v4
+        with:
+          pattern: full-formula-*
+          path: inputs
+          merge-multiple: false
+          run-id: 31892157223
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download recovered 30/31 artifacts from this run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: full-formula-cohort-*-30_31
+          path: inputs
+          merge-multiple: false
+      - name: Verify complete 17-artifact input set
+        run: |
+          echo "Inputs available:"
+          find inputs -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | sort
+          count=$(find inputs -maxdepth 1 -mindepth 1 -type d | wc -l)
+          echo "Artifact count: $count"
+          if [ "$count" -ne 17 ]; then
+            echo "Expected 17 artifacts: 16 cohort-threshold + 1 longitudinal. Refusing partial synthesis."
+            exit 1
+          fi
+      - name: Synthesize complete audit with longitudinal target compatibility fix
+        env:
+          INPUT_ROOT: inputs
+        run: |
+          cat studies/composite_school_grant/full_formula_audit/parts/synthesize_formula_audit.* > /tmp/synthesize_formula_audit.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/synthesize_formula_audit.py')
+          s=p.read_text()
+          needle="stable=gather('stable_entitlement_pairs.csv');persistent=gather('persistent_mismatch.csv');density=gather('density_placebo.csv');cross=gather('minimal_crossing_summary.csv');cycle=gather('cycle_fidelity_by_band.csv')"
+          replacement=needle+"\nif len(persistent) and 'target' not in persistent.columns and 'entitlement_target' in persistent.columns:\n    persistent=persistent.rename(columns={'entitlement_target':'target'})"
+          if needle not in s:
+              raise RuntimeError('Could not locate longitudinal gather line for compatibility patch')
+          p.write_text(s.replace(needle,replacement))
+          PY
+          python /tmp/synthesize_formula_audit.py
+      - name: Upload definitive recovered full audit
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: csg-full-four-threshold-definitive-audit-recovered
+          path: studies/composite_school_grant/outputs/full_formula_audit/final/
+          retention-days: 14
