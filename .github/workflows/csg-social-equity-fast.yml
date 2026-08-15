@@ -34,7 +34,7 @@ jobs:
       - name: Remove dataframe-transpose placeholders
         run: |
           sed -i '/d\["Tz"\] = d.T \* 0/d' studies/composite_school_grant/social_equity/run_social_equity.py
-          sed -i "/z\['Tx'\]=z.T\*0/d" studies/composite_school_grant/social_equity/run_fast_cohort.py
+          sed -i "s/; z\['Tx'\]=z.T\*0//" studies/composite_school_grant/social_equity/run_fast_cohort.py
       - run: python studies/composite_school_grant/social_equity/run_fast_cohort.py
       - uses: actions/upload-artifact@v4
         if: always()
