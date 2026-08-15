@@ -74,7 +74,7 @@ def main():
     con=duckdb.connect();con.execute('PRAGMA threads=4');con.execute("PRAGMA memory_limit='10GB'")
     with tempfile.TemporaryDirectory(prefix=f'fuzzy_{ay}_') as td:
         root=Path(td)
-        en=src(extract(repo,tok,ay,'enrolment_1',root));p1=src(extract(repo,tok,ay,'profile_1',root));fac=src(extract(repo,tok,ay,'facility',root));ec,pc,fc=cols(con,en),cols(con,p1),cols(con,fac);ei,pi,fi=ident(ec),ident(pc);es,filt=total_enrolment_setup(con,en,ec);e8=e8expr(ec);bc=component_exprs(fc,'f');ce=cluster_expr(pc,'p')
+        en=src(extract(repo,tok,ay,'enrolment_1',root));p1=src(extract(repo,tok,ay,'profile_1',root));fac=src(extract(repo,tok,ay,'facility',root));ec,pc,fc=cols(con,en),cols(con,p1),cols(con,fac);ei,pi,fi=ident(ec),ident(pc),ident(fc);es,filt=total_enrolment_setup(con,en,ec);e8=e8expr(ec);bc=component_exprs(fc,'f');ce=cluster_expr(pc,'p')
         bsel=','.join(f'{v} b_{k}' for k,v in bc.items() if k in ASSETS)
         con.execute(f"CREATE TEMP TABLE ee AS SELECT CAST({qid(ei)} AS VARCHAR) pseudocode,SUM({es}) enrol,SUM({e8}) enrol18 FROM {en} WHERE {filt} GROUP BY 1")
         con.execute(f"CREATE TEMP TABLE base AS SELECT e.pseudocode,e.enrol,e.enrol18,{ce} state,{bsel} FROM ee e JOIN {p1} p ON e.pseudocode=CAST(p.{qid(pi)} AS VARCHAR) LEFT JOIN {fac} f ON e.pseudocode=CAST(f.{qid(fi)} AS VARCHAR) WHERE {nref(pc,'managment','p')} IN {GOV} AND e.enrol BETWEEN 180 AND 321")
