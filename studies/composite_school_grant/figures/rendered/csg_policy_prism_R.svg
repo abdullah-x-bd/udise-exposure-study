@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8' ?>
-<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='828.00pt' height='590.40pt' viewBox='0 0 828.00 590.40'>
+<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='763.20pt' height='561.60pt' viewBox='0 0 763.20 561.60'>
 <g class='svglite'>
 <defs>
   <style type='text/css'><![CDATA[
@@ -21,52 +21,42 @@
 </defs>
 <rect width='100%' height='100%' style='stroke: none; fill: #FFFFFF;'/>
 <defs>
-  <clipPath id='cpMC4wMHw4MjguMDB8MC4wMHw1OTAuNDA='>
-    <rect x='0.00' y='0.00' width='828.00' height='590.40' />
+  <clipPath id='cpMC4wMHw3NjMuMjB8MC4wMHw1NjEuNjA='>
+    <rect x='0.00' y='0.00' width='763.20' height='561.60' />
   </clipPath>
 </defs>
-<g clip-path='url(#cpMC4wMHw4MjguMDB8MC4wMHw1OTAuNDA=)'>
-</g>
-<defs>
-  <clipPath id='cpMTkxLjI4fDYzNi43MnwwLjAwfDU5MC40MA=='>
-    <rect x='191.28' y='0.00' width='445.44' height='590.40' />
-  </clipPath>
-</defs>
-<g clip-path='url(#cpMTkxLjI4fDYzNi43MnwwLjAwfDU5MC40MA==)'>
-<rect x='191.28' y='0.00' width='445.44' height='590.40' style='stroke-width: 0.00; stroke: none;' />
-</g>
-<g clip-path='url(#cpMC4wMHw4MjguMDB8MC4wMHw1OTAuNDA=)'>
-<rect x='366.20' y='216.57' width='79.24' height='61.81' style='stroke-width: 10.67; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #F2F4F6;' />
-<rect x='476.26' y='216.57' width='79.24' height='61.81' style='stroke-width: 10.67; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #DC8952;' />
-<rect x='366.20' y='302.42' width='79.24' height='61.81' style='stroke-width: 10.67; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #F2DBCF;' />
-<rect x='476.26' y='302.42' width='79.24' height='61.81' style='stroke-width: 10.67; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #CD6B21;' />
-<rect x='366.20' y='388.27' width='79.24' height='61.81' style='stroke-width: 10.67; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #F1D8CA;' />
-<rect x='476.26' y='388.27' width='79.24' height='61.81' style='stroke-width: 10.67; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #CA6515;' />
-<rect x='366.20' y='474.11' width='79.24' height='61.81' style='stroke-width: 10.67; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #F0CCB7;' />
-<rect x='476.26' y='474.11' width='79.24' height='61.81' style='stroke-width: 10.67; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #CC681C;' />
-<text x='405.83' y='258.73' text-anchor='middle' style='font-size: 32.72px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='36.16px' lengthAdjust='spacingAndGlyphs'>≈0</text>
-<text x='515.89' y='258.73' text-anchor='middle' style='font-size: 32.72px; font-weight: bold;fill: #FFFFFF; font-family: "Liberation Sans";' textLength='82.81px' lengthAdjust='spacingAndGlyphs'>+24.7</text>
-<text x='405.83' y='344.58' text-anchor='middle' style='font-size: 32.72px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='64.61px' lengthAdjust='spacingAndGlyphs'>+5.7</text>
-<text x='515.89' y='344.58' text-anchor='middle' style='font-size: 32.72px; font-weight: bold;fill: #FFFFFF; font-family: "Liberation Sans";' textLength='82.81px' lengthAdjust='spacingAndGlyphs'>+31.8</text>
-<text x='405.83' y='430.43' text-anchor='middle' style='font-size: 32.72px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='64.61px' lengthAdjust='spacingAndGlyphs'>+6.4</text>
-<text x='515.89' y='430.43' text-anchor='middle' style='font-size: 32.72px; font-weight: bold;fill: #FFFFFF; font-family: "Liberation Sans";' textLength='82.81px' lengthAdjust='spacingAndGlyphs'>+33.2</text>
-<text x='405.83' y='516.28' text-anchor='middle' style='font-size: 32.72px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='64.61px' lengthAdjust='spacingAndGlyphs'>+9.1</text>
-<text x='515.89' y='516.28' text-anchor='middle' style='font-size: 32.72px; font-weight: bold;fill: #FFFFFF; font-family: "Liberation Sans";' textLength='82.81px' lengthAdjust='spacingAndGlyphs'>+32.5</text>
-<line x1='416.83' y1='184.81' x2='504.88' y2='184.81' style='stroke-width: 1.92; stroke: #7A838A; stroke-linecap: butt;' />
-<polygon points='494.90,190.57 504.88,184.81 494.90,179.05 ' style='stroke-width: 1.92; stroke: #7A838A; stroke-linecap: butt; fill: #7A838A;' />
-<text x='460.86' y='171.55' text-anchor='middle' style='font-size: 11.38px; font-weight: bold;fill: #5F6368; font-family: "Liberation Sans";' textLength='223.78px' lengthAdjust='spacingAndGlyphs'>UDISE reports the previous financial year</text>
-<text x='405.83' y='133.23' text-anchor='middle' style='font-size: 15.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='98.88px' lengthAdjust='spacingAndGlyphs'>GRANT YEAR</text>
-<text x='405.83' y='152.13' text-anchor='middle' style='font-size: 15.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='17.11px' lengthAdjust='spacingAndGlyphs'>+2</text>
-<text x='515.89' y='133.23' text-anchor='middle' style='font-size: 15.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='114.98px' lengthAdjust='spacingAndGlyphs'>UDISE RECORD</text>
-<text x='515.89' y='152.13' text-anchor='middle' style='font-size: 15.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='17.11px' lengthAdjust='spacingAndGlyphs'>+3</text>
-<text x='292.65' y='510.18' text-anchor='middle' style='font-size: 15.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='58.41px' lengthAdjust='spacingAndGlyphs'>2022–23</text>
-<text x='292.65' y='424.33' text-anchor='middle' style='font-size: 15.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='58.41px' lengthAdjust='spacingAndGlyphs'>2021–22</text>
-<text x='292.65' y='338.48' text-anchor='middle' style='font-size: 15.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='58.41px' lengthAdjust='spacingAndGlyphs'>2020–21</text>
-<text x='292.65' y='252.64' text-anchor='middle' style='font-size: 15.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='58.41px' lengthAdjust='spacingAndGlyphs'>2019–20</text>
-<text transform='translate(244.43,362.08) rotate(-90)' text-anchor='middle' style='font-size: 10.50px; font-weight: bold;fill: #5F6368; font-family: "Liberation Sans";' textLength='115.27px' lengthAdjust='spacingAndGlyphs'>ENROLMENT VINTAGE</text>
-<text x='339.79' y='74.62' style='font-size: 12.20px;fill: #111111; font-family: "Liberation Sans";' textLength='403.83px' lengthAdjust='spacingAndGlyphs'>250 → 251 pupils raises the statutory CSG band from ₹50,000 → ₹75,000.</text>
-<text x='339.79' y='92.92' style='font-size: 12.20px;fill: #111111; font-family: "Liberation Sans";' textLength='440.80px' lengthAdjust='spacingAndGlyphs'>Each tile is the jump in the chance that UDISE records receipt of at least ₹75,000.</text>
-<text x='339.79' y='51.07' style='font-size: 25.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='820.50px' lengthAdjust='spacingAndGlyphs'>THE ₹25,000 FUNDING CLIFF SHOWS UP ONE UDISE ROUND LATER</text>
+<g clip-path='url(#cpMC4wMHw3NjMuMjB8MC4wMHw1NjEuNjA=)'>
+<rect x='0.000000000000064' y='-0.00000000000011' width='763.20' height='561.60' style='stroke-width: 0.00; stroke: none;' />
+<rect x='159.97' y='216.27' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #F3F4F5;' />
+<rect x='458.58' y='216.27' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #DD8851;' />
+<rect x='159.97' y='298.66' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #F3DBCE;' />
+<rect x='458.58' y='298.66' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #CE6921;' />
+<rect x='159.97' y='381.06' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #F2D8C9;' />
+<rect x='458.58' y='381.06' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #CB6315;' />
+<rect x='159.97' y='463.46' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #F1CBB7;' />
+<rect x='458.58' y='463.46' width='226.94' height='59.33' style='stroke-width: 9.60; stroke: #FFFFFF; stroke-linecap: butt; stroke-linejoin: miter; fill: #CD661B;' />
+<text x='273.44' y='255.42' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='30.48px' lengthAdjust='spacingAndGlyphs'>≈0</text>
+<text x='572.05' y='255.42' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #FFFFFF; font-family: "Liberation Sans";' textLength='69.81px' lengthAdjust='spacingAndGlyphs'>+24.7</text>
+<text x='273.44' y='337.82' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='54.47px' lengthAdjust='spacingAndGlyphs'>+5.7</text>
+<text x='572.05' y='337.82' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #FFFFFF; font-family: "Liberation Sans";' textLength='69.81px' lengthAdjust='spacingAndGlyphs'>+31.8</text>
+<text x='273.44' y='420.22' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='54.47px' lengthAdjust='spacingAndGlyphs'>+6.4</text>
+<text x='572.05' y='420.22' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #FFFFFF; font-family: "Liberation Sans";' textLength='69.81px' lengthAdjust='spacingAndGlyphs'>+33.2</text>
+<text x='273.44' y='502.61' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='54.47px' lengthAdjust='spacingAndGlyphs'>+9.1</text>
+<text x='572.05' y='502.61' text-anchor='middle' style='font-size: 27.60px; font-weight: bold;fill: #FFFFFF; font-family: "Liberation Sans";' textLength='69.81px' lengthAdjust='spacingAndGlyphs'>+32.5</text>
+<line x1='327.19' y1='186.61' x2='518.30' y2='186.61' style='stroke-width: 1.81; stroke: #687078; stroke-linecap: butt;' />
+<polygon points='509.57,191.65 518.30,186.61 509.57,181.57 ' style='stroke-width: 1.81; stroke: #687078; stroke-linecap: butt; fill: #687078;' />
+<text x='422.75' y='173.31' text-anchor='middle' style='font-size: 11.67px; font-weight: bold;fill: #687078; font-family: "Liberation Sans";' textLength='229.31px' lengthAdjust='spacingAndGlyphs'>UDISE reports the previous financial year</text>
+<text x='273.44' y='135.15' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='102.19px' lengthAdjust='spacingAndGlyphs'>GRANT YEAR</text>
+<text x='273.44' y='153.75' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='17.67px' lengthAdjust='spacingAndGlyphs'>+2</text>
+<text x='572.05' y='135.15' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='118.84px' lengthAdjust='spacingAndGlyphs'>UDISE RECORD</text>
+<text x='572.05' y='153.75' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='17.67px' lengthAdjust='spacingAndGlyphs'>+3</text>
+<text x='72.03' y='498.46' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='60.38px' lengthAdjust='spacingAndGlyphs'>2022–23</text>
+<text x='72.03' y='416.06' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='60.38px' lengthAdjust='spacingAndGlyphs'>2021–22</text>
+<text x='72.03' y='333.66' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='60.38px' lengthAdjust='spacingAndGlyphs'>2020–21</text>
+<text x='72.03' y='251.27' text-anchor='middle' style='font-size: 15.50px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='60.38px' lengthAdjust='spacingAndGlyphs'>2019–20</text>
+<text x='124.14' y='77.61' style='font-size: 12.50px;fill: #111111; font-family: "Liberation Sans";' textLength='385.47px' lengthAdjust='spacingAndGlyphs'>250 → 251 pupils moves the statutory CSG band ₹50,000 → ₹75,000</text>
+<text x='124.14' y='96.36' style='font-size: 12.50px;fill: #111111; font-family: "Liberation Sans";' textLength='401.77px' lengthAdjust='spacingAndGlyphs'>Jump in the chance UDISE records receipt ≥ ₹75,000, percentage points</text>
+<text x='124.14' y='54.44' style='font-size: 27.00px; font-weight: bold;fill: #111111; font-family: "Liberation Sans";' textLength='482.39px' lengthAdjust='spacingAndGlyphs'>THE GRANT SIGNAL APPEARS AT +3</text>
 </g>
 </g>
 </svg>
