@@ -1,0 +1,37 @@
+name: CSG government universe robustness
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/composite-school-grant-study
+    paths:
+      - "studies/composite_school_grant/government_universe/**"
+      - ".github/workflows/csg-government-universe.yml"
+
+jobs:
+  universe:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        assignment_year: ["2019-20", "2020-21", "2021-22", "2022-23"]
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+      ASSIGN_YEAR: ${{ matrix.assignment_year }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - run: python -m pip install "pandas>=2.2,<3"
+      - run: python studies/composite_school_grant/government_universe/run_government_universe.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: csg-government-universe-${{ matrix.assignment_year }}
+          path: studies/composite_school_grant/outputs/government_universe/${{ matrix.assignment_year }}/*
+          retention-days: 14
