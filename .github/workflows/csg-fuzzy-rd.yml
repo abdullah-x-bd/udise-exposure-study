@@ -1,0 +1,43 @@
+name: CSG fuzzy RD sensitivity
+
+on:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths:
+      - "studies/composite_school_grant/fuzzy_rd/**"
+      - ".github/workflows/csg-fuzzy-rd.yml"
+
+permissions:
+  contents: read
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  fuzzy:
+    strategy:
+      fail-fast: false
+      matrix:
+        assign: ["2021-22","2022-23"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      ASSIGN_YEAR: ${{ matrix.assign }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - run: python -m pip install "pandas>=2.2,<3" "scipy>=1.14,<2" "rdrobust>=1.3,<2"
+      - name: Run fuzzy RD sensitivity
+        run: python studies/composite_school_grant/fuzzy_rd/run_fuzzy.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-fuzzy-${{ matrix.assign }}
+          path: studies/composite_school_grant/outputs/fuzzy_rd/${{ matrix.assign }}/
+          retention-days: 14
