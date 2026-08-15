@@ -1,0 +1,42 @@
+name: CSG social equity band-normalized levels
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths:
+      - "studies/composite_school_grant/social_equity/run_entitlement_levels.py"
+      - ".github/workflows/csg-social-equity-entitlement.yml"
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  cohort:
+    strategy:
+      fail-fast: false
+      matrix:
+        assignment_year: ["2019-20","2020-21","2021-22","2022-23"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      ASSIGN_YEAR: ${{ matrix.assignment_year }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - run: python -m pip install "pandas>=2.2,<3" "statsmodels>=0.14,<1"
+      - run: python studies/composite_school_grant/social_equity/run_entitlement_levels.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-social-entitlement-${{ matrix.assignment_year }}
+          path: |
+            studies/composite_school_grant/outputs/social_equity_entitlement/${{ matrix.assignment_year }}/*.csv
+            studies/composite_school_grant/outputs/social_equity_entitlement/${{ matrix.assignment_year }}/*.json
+          retention-days: 14
