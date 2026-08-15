@@ -18,22 +18,21 @@ d <- tibble::tribble(
   mutate(
     cohort = factor(cohort, levels = rev(c("2019–20", "2020–21", "2021–22", "2022–23"))),
     benchmark = 100,
-    gap = benchmark - observed,
     label = sprintf("%.1f pp", observed)
   )
 
 ink <- "#111111"
-muted <- "#B6BBC0"
+muted <- "#8F969D"
 soft <- "#F2F3F4"
 accent <- "#C75B00"
 accent_soft <- "#F1D6C3"
 
 p <- ggplot(d, aes(y = cohort)) +
-  # The repeated observed region
+  # Where the four correctly timed estimates actually land
   annotate("rect", xmin = 24, xmax = 34, ymin = 0.5, ymax = 4.5,
            fill = accent_soft, alpha = 0.45) +
 
-  # Gap from observed discontinuity to a mechanically faithful binary record
+  # The fidelity gap
   geom_segment(aes(x = observed, xend = benchmark, yend = cohort),
                linewidth = 3.0, colour = soft, lineend = "round") +
 
@@ -45,20 +44,23 @@ p <- ggplot(d, aes(y = cohort)) +
   # Mechanical-record benchmark
   geom_point(aes(x = benchmark), shape = 21, size = 7.6,
              stroke = 1.45, fill = "white", colour = ink) +
-  geom_vline(xintercept = 100, linewidth = 0.8, linetype = "dashed", colour = muted) +
+  geom_vline(xintercept = 100, linewidth = 0.8, linetype = "dashed", colour = "#B6BBC0") +
 
   # Direct labels, no legend
   annotate("text", x = 29, y = 4.35,
            label = "OBSERVED IN UDISE",
            hjust = 0.5, size = 4.7, fontface = "bold", colour = accent) +
-  annotate("text", x = 100, y = 4.35,
-           label = "100 pp\nMECHANICAL BENCHMARK",
-           hjust = 0.5, size = 4.25, fontface = "bold", colour = ink, lineheight = 0.95) +
+  annotate("text", x = 103, y = 4.35,
+           label = "100 pp\nIF THE RECORD MIRRORED THE RULE",
+           hjust = 1, size = 4.05, fontface = "bold", colour = ink, lineheight = 0.95) +
 
-  # The gap itself is the finding
-  annotate("text", x = 66, y = 2.5,
-           label = "≈70 pp of the mechanical signal\nis not reflected in this indicator",
-           size = 5.5, fontface = "bold", colour = muted, lineheight = 0.95) +
+  # The gap itself is the result
+  annotate("text", x = 66, y = 2.63,
+           label = "≈70 pp GAP",
+           size = 6.5, fontface = "bold", colour = muted) +
+  annotate("text", x = 66, y = 2.30,
+           label = "not reflected in this UDISE indicator",
+           size = 4.4, fontface = "bold", colour = muted) +
 
   scale_x_continuous(
     limits = c(0, 106),
