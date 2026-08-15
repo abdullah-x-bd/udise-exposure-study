@@ -36,12 +36,10 @@ def esum(c,maxclass):
 def cluster_expr(c,alias):
     for name in ('state','state_id','state_code','state_cd'):
         r=ref(c,name,alias)
-        if r:
-            return f"CAST({r} AS VARCHAR)"
+        if r:return f"CAST({r} AS VARCHAR)"
     for name in ('district','district_id','district_code','district_cd'):
         r=ref(c,name,alias)
-        if r:
-            return f"'district:' || CAST({r} AS VARCHAR)"
+        if r:return f"'district:' || CAST({r} AS VARCHAR)"
     raise RuntimeError('no usable geographic cluster field in profile_1')
 
 
@@ -73,7 +71,7 @@ def robust(y,x,state,bw=30):
     y=y[m];x=x[m];state=state.to_numpy()[m]
     if len(y)<500 or pd.Series(state).nunique()<10:return None
     try:
-        r=rdrobust(y=y,x=x,c=C,p=1,q=2,kernel='tri',h=bw,b=45,cluster=pd.Categorical(state).codes,vce='cr3',masspoints='adjust',bwcheck=15)
+        r=rdrobust(y=y,x=x,c=C,p=1,q=2,kernel='tri',h=bw,b=45,cluster=pd.Categorical(state).codes,vce='nn',masspoints='adjust',bwcheck=15)
         co=float(np.asarray(r.coef,dtype=float).reshape(-1)[-1]);se=float(np.asarray(r.se,dtype=float).reshape(-1)[-1]);pv=float(np.asarray(r.pv,dtype=float).reshape(-1)[-1]);ci=np.asarray(r.ci,dtype=float).reshape(-1,2)[-1]
         return {'tau':co,'se':se,'p':pv,'ci_low':float(ci[0]),'ci_high':float(ci[1]),'n':len(y),'clusters':int(pd.Series(state).nunique())}
     except Exception as e:return {'error':repr(e),'n':len(y),'clusters':int(pd.Series(state).nunique())}
@@ -111,10 +109,10 @@ def main():
                         if res:rows.append({'assignment_year':ay,'outcome_year':oy,'lag':lag,'sample':sample,'outcome':name,'estimator':'local_linear_hc','bw':bw,**res})
                 if sample=='all':
                     res=robust(outcomes['receipt_ge75000'],x,st,30)
-                    if res:rows.append({'assignment_year':ay,'outcome_year':oy,'lag':lag,'sample':sample,'outcome':'receipt_ge75000','estimator':'rdrobust_cr3','bw':30,**res})
+                    if res:rows.append({'assignment_year':ay,'outcome_year':oy,'lag':lag,'sample':sample,'outcome':'receipt_ge75000','estimator':'rdrobust_cluster','bw':30,**res})
             print(json.dumps({'assignment':ay,'outcome':oy,'lag':lag,'n':len(d),'state_clusters':int(d.state.nunique(dropna=True))}),flush=True)
     write_csv(out/'timing.csv',rows)
-    rr=[r for r in rows if r['estimator']=='rdrobust_cr3' and 'tau' in r]
+    rr=[r for r in rows if r['estimator']=='rdrobust_cluster' and 'tau' in r]
     md=['# Timing results for '+ay,'','Threshold coordinate 250.5. Primary outcome is P(reported CSG receipt >= Rs 75,000).','']
     for r in sorted(rr,key=lambda x:x['lag']):md.append(f"- {r['outcome_year']} lag {r['lag']:+d}: {100*r['tau']:.2f} pp (95% CI {100*r['ci_low']:.2f} to {100*r['ci_high']:.2f}), p={r['p']:.4g}, clusters={r.get('clusters','NA')}")
     (out/'RESULTS.md').write_text('\n'.join(md),encoding='utf-8');print('\n'.join(md),flush=True);con.close()
