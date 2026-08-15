@@ -33,6 +33,18 @@ def esum(c,maxclass):
     return ' + '.join(q)
 
 
+def cluster_expr(c,alias):
+    for name in ('state','state_id','state_code','state_cd'):
+        r=ref(c,name,alias)
+        if r:
+            return f"CAST({r} AS VARCHAR)"
+    for name in ('district','district_id','district_code','district_cd'):
+        r=ref(c,name,alias)
+        if r:
+            return f"'district:' || CAST({r} AS VARCHAR)"
+    raise RuntimeError('no usable geographic cluster field in profile_1')
+
+
 def write_csv(path,rows):
     path.parent.mkdir(parents=True,exist_ok=True)
     if not rows:path.write_text('',encoding='utf-8');return
@@ -56,22 +68,24 @@ def fast(y,x,bw=30):
 
 
 def robust(y,x,state,bw=30):
-    m=np.isfinite(y)&np.isfinite(x)&np.isfinite(state)&(np.abs(x-C)<=bw);y=y[m];x=x[m];state=state[m]
-    if len(y)<500:return None
+    state=pd.Series(state,dtype='object')
+    m=np.isfinite(y)&np.isfinite(x)&state.notna().to_numpy()&(np.abs(x-C)<=bw)
+    y=y[m];x=x[m];state=state.to_numpy()[m]
+    if len(y)<500 or pd.Series(state).nunique()<10:return None
     try:
         r=rdrobust(y=y,x=x,c=C,p=1,q=2,kernel='tri',h=bw,b=45,cluster=pd.Categorical(state).codes,vce='cr3',masspoints='adjust',bwcheck=15)
         co=float(np.asarray(r.coef,dtype=float).reshape(-1)[-1]);se=float(np.asarray(r.se,dtype=float).reshape(-1)[-1]);pv=float(np.asarray(r.pv,dtype=float).reshape(-1)[-1]);ci=np.asarray(r.ci,dtype=float).reshape(-1,2)[-1]
-        return {'tau':co,'se':se,'p':pv,'ci_low':float(ci[0]),'ci_high':float(ci[1]),'n':len(y)}
-    except Exception as e:return {'error':repr(e),'n':len(y)}
+        return {'tau':co,'se':se,'p':pv,'ci_low':float(ci[0]),'ci_high':float(ci[1]),'n':len(y),'clusters':int(pd.Series(state).nunique())}
+    except Exception as e:return {'error':repr(e),'n':len(y),'clusters':int(pd.Series(state).nunique())}
 
 
 def main():
     ay=os.environ['ASSIGN_YEAR']; ai=YEARS.index(ay);repo=os.environ['HF_DATASET_REPO'];tok=os.environ['HF_TOKEN'];out=Path(f'studies/composite_school_grant/outputs/timing_matrix/{ay}');out.mkdir(parents=True,exist_ok=True);rows=[]
     con=duckdb.connect();con.execute('PRAGMA threads=4');con.execute("PRAGMA memory_limit='10GB'")
     with tempfile.TemporaryDirectory(prefix=f'timing_{ay}_') as td:
-        root=Path(td);en=src(extract(repo,tok,ay,'enrolment_1',root));p1=src(extract(repo,tok,ay,'profile_1',root));ec,pc=cols(con,en),cols(con,p1);ei,pi=ident(ec),ident(pc);f=efilt(con,en,ec);e12=esum(ec,12);e8=esum(ec,8)
+        root=Path(td);en=src(extract(repo,tok,ay,'enrolment_1',root));p1=src(extract(repo,tok,ay,'profile_1',root));ec,pc=cols(con,en),cols(con,p1);ei,pi=ident(ec),ident(pc);f=efilt(con,en,ec);e12=esum(ec,12);e8=esum(ec,8);ce=cluster_expr(pc,'p')
         con.execute(f"CREATE TEMP TABLE ee AS SELECT CAST({qid(ei)} AS VARCHAR) pseudocode,SUM({e12}) enrol,SUM({e8}) enrol18 FROM {en} WHERE {f} GROUP BY 1")
-        con.execute(f"CREATE TEMP TABLE base AS SELECT e.pseudocode,e.enrol,e.enrol18,{nref(pc,'state','p')} state FROM ee e JOIN {p1} p ON e.pseudocode=CAST(p.{qid(pi)} AS VARCHAR) WHERE {nref(pc,'managment','p')} IN {GOV} AND e.enrol BETWEEN 180 AND 321")
+        con.execute(f"CREATE TEMP TABLE base AS SELECT e.pseudocode,e.enrol,e.enrol18,{ce} state FROM ee e JOIN {p1} p ON e.pseudocode=CAST(p.{qid(pi)} AS VARCHAR) WHERE {nref(pc,'managment','p')} IN {GOV} AND e.enrol BETWEEN 180 AND 321")
         for oy in YEARS:
             lag=YEARS.index(oy)-ai
             if lag < -3 or lag > 4:continue
@@ -79,7 +93,7 @@ def main():
             con.execute(f"CREATE OR REPLACE TEMP TABLE fin AS SELECT CAST({qid(gi)} AS VARCHAR) pseudocode,{nref(gc,'grants_receipt')} receipt,{nref(gc,'grants_expenditure')} expenditure FROM {p2}")
             d=con.execute('SELECT b.*,f.receipt,f.expenditure FROM base b LEFT JOIN fin f USING(pseudocode)').df()
             for sample,mask in [('all',np.ones(len(d),bool)),('pm220',d.enrol18.fillna(99999).to_numpy(float)<=220),('pm200',d.enrol18.fillna(99999).to_numpy(float)<=200)]:
-                z=d.loc[mask];x=z.enrol.to_numpy(float);st=z.state.to_numpy(float);r=z.receipt.to_numpy(float);q=z.expenditure.to_numpy(float)
+                z=d.loc[mask];x=z.enrol.to_numpy(float);st=z.state.to_numpy(dtype=object);r=z.receipt.to_numpy(float);q=z.expenditure.to_numpy(float)
                 vr=np.isfinite(r);vq=np.isfinite(q)
                 outcomes={
                   'receipt_ge75000':np.where(vr,(r>=75000).astype(float),np.nan),
@@ -95,15 +109,14 @@ def main():
                     for bw in (20,30,40):
                         res=fast(y,x,bw)
                         if res:rows.append({'assignment_year':ay,'outcome_year':oy,'lag':lag,'sample':sample,'outcome':name,'estimator':'local_linear_hc','bw':bw,**res})
-                # expensive publication estimator only for primary categorical first stage, all sample
                 if sample=='all':
                     res=robust(outcomes['receipt_ge75000'],x,st,30)
                     if res:rows.append({'assignment_year':ay,'outcome_year':oy,'lag':lag,'sample':sample,'outcome':'receipt_ge75000','estimator':'rdrobust_cr3','bw':30,**res})
-            print(json.dumps({'assignment':ay,'outcome':oy,'lag':lag,'n':len(d)}),flush=True)
+            print(json.dumps({'assignment':ay,'outcome':oy,'lag':lag,'n':len(d),'state_clusters':int(d.state.nunique(dropna=True))}),flush=True)
     write_csv(out/'timing.csv',rows)
     rr=[r for r in rows if r['estimator']=='rdrobust_cr3' and 'tau' in r]
     md=['# Timing results for '+ay,'','Threshold coordinate 250.5. Primary outcome is P(reported CSG receipt >= Rs 75,000).','']
-    for r in sorted(rr,key=lambda x:x['lag']):md.append(f"- {r['outcome_year']} lag {r['lag']:+d}: {100*r['tau']:.2f} pp (95% CI {100*r['ci_low']:.2f} to {100*r['ci_high']:.2f}), p={r['p']:.4g}")
+    for r in sorted(rr,key=lambda x:x['lag']):md.append(f"- {r['outcome_year']} lag {r['lag']:+d}: {100*r['tau']:.2f} pp (95% CI {100*r['ci_low']:.2f} to {100*r['ci_high']:.2f}), p={r['p']:.4g}, clusters={r.get('clusters','NA')}")
     (out/'RESULTS.md').write_text('\n'.join(md),encoding='utf-8');print('\n'.join(md),flush=True);con.close()
 
 if __name__=='__main__':main()
