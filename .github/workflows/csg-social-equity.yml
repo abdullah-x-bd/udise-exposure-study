@@ -1,0 +1,45 @@
+name: CSG social equity analysis
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/composite-school-grant-study
+    paths:
+      - "studies/composite_school_grant/social_equity/**"
+      - ".github/workflows/csg-social-equity.yml"
+
+jobs:
+  social-equity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install project and analysis dependencies
+        run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3" "scipy>=1.14,<2" "statsmodels>=0.14,<1"
+      - name: Remove two harmless dataframe-transpose placeholders from initial analysis commit
+        run: |
+          sed -i '/d\["Tz"\] = d.T \* 0/d' studies/composite_school_grant/social_equity/run_social_equity.py
+      - name: Run comprehensive social-equity analysis
+        run: python studies/composite_school_grant/social_equity/run_social_equity.py
+      - name: Upload social-equity results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: csg-social-equity-results
+          path: |
+            studies/composite_school_grant/outputs/social_equity/*.csv
+            studies/composite_school_grant/outputs/social_equity/*.json
+            studies/composite_school_grant/outputs/social_equity/*.md
+          if-no-files-found: warn
+          retention-days: 14
