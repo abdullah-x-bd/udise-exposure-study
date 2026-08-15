@@ -1,0 +1,43 @@
+name: CSG enrolment integrity audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths:
+      - "studies/composite_school_grant/enrolment_integrity/run_density_audit.py"
+      - ".github/workflows/csg-enrolment-integrity.yml"
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  year:
+    strategy:
+      fail-fast: false
+      matrix:
+        year: ["2018-19","2019-20","2020-21","2021-22","2022-23","2023-24","2024-25","2025-26"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      YEAR: ${{ matrix.year }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - run: python -m pip install "pandas>=2.2,<3" "statsmodels>=0.14,<1"
+      - run: python studies/composite_school_grant/enrolment_integrity/run_density_audit.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-enrolment-integrity-${{ matrix.year }}
+          path: |
+            studies/composite_school_grant/outputs/enrolment_integrity/${{ matrix.year }}/*.csv
+            studies/composite_school_grant/outputs/enrolment_integrity/${{ matrix.year }}/*.png
+            studies/composite_school_grant/outputs/enrolment_integrity/${{ matrix.year }}/*.md
+          retention-days: 14
