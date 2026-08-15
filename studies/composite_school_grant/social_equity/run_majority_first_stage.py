@@ -27,7 +27,7 @@ def rd(d,fe_col):
 def majority_interaction(d):
  d=d[np.isfinite(d.receipt)&np.isfinite(d.enrol)&np.isfinite(d.prev_muslim_share)&(d.prev_muslim_share!=.5)&(np.abs(d.enrol-CUT)<=BW)].copy()
  if len(d)<2000:return None
- d['M']=(d.prev_muslim_share>.5).astype(float);d['T']=(d.enrol>=CUT).astype(float);d['z']=d.enrol-CUT;d['Tz']=d.T*0;d['Tz']=d['T']*d['z'];d['TM']=d['T']*d['M'];d['zM']=d['z']*d['M'];d['TzM']=d['T']*d['z']*d['M'];d['y']=(d.receipt>=75000).astype(float);d['w']=np.maximum(0,1-np.abs(d.z)/BW);d['fe']=d.state.astype(str)+'|'+d.district.astype(str)
+ d['M']=(d.prev_muslim_share>.5).astype(float);d['T']=(d.enrol>=CUT).astype(float);d['z']=d.enrol-CUT;d['Tz']=d['T']*d['z'];d['TM']=d['T']*d['M'];d['zM']=d['z']*d['M'];d['TzM']=d['T']*d['z']*d['M'];d['y']=(d.receipt>=75000).astype(float);d['w']=np.maximum(0,1-np.abs(d.z)/BW);d['fe']=d.state.astype(str)+'|'+d.district.astype(str)
  cols=['y','T','z','Tz','M','TM','zM','TzM']
  for base in ('management','rural_urban','school_category'):
   vals=pd.to_numeric(d[base],errors='coerce').fillna(-999).astype(int);cats=sorted(vals.unique())
