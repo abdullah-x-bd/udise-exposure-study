@@ -1,0 +1,39 @@
+name: CSG red-team teacher and enrolment outcomes
+on:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths: [".github/workflows/csg-red-team-teacher-enrolment.yml"]
+permissions:
+  contents: read
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+jobs:
+  outcomes:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - assign: "2021-22"
+            future: "2023-24,2024-25,2025-26"
+          - assign: "2022-23"
+            future: "2024-25,2025-26"
+    runs-on: ubuntu-latest
+    env:
+      ASSIGN_YEAR: ${{ matrix.assign }}
+      FUTURE_YEARS: ${{ matrix.future }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e .
+      - run: python studies/composite_school_grant/red_team/run_teacher_enrolment_screen.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: csg-teacher-enrolment-${{ matrix.assign }}
+          path: studies/composite_school_grant/outputs/red_team/${{ matrix.assign }}/teacher_enrolment_*
+          retention-days: 14
