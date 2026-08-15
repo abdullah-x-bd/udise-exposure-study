@@ -78,7 +78,7 @@ def write_csv(p,rows):
         w=csv.DictWriter(f,fieldnames=ks);w.writeheader();w.writerows(rows)
 
 def draw_density(df,year,universe,out):
-    g=df.groupby('enrolment').size().reindex(range(0,401),fill_value=0)
+    g=df.groupby('enrol').size().reindex(range(0,401),fill_value=0)
     fig,ax=plt.subplots(figsize=(13,5))
     ax.plot(g.index,g.values,linewidth=1)
     for x in (30.5,100.5,250.5):ax.axvline(x,linestyle='--',linewidth=1)
@@ -106,14 +106,13 @@ def main():
                 s.update({'academic_year':year,'universe':universe,'kind':'true' if c in TRUE else 'placebo'});all_thresh.append(s)
                 if c==250:local250=detail
         draw_local(local250,year,universe,out)
-        g=x.groupby('enrolment').size().reindex(range(0,401),fill_value=0)
+        g=x.groupby('enrol').size().reindex(range(0,401),fill_value=0)
         for e,n in g.items():all_counts.append({'academic_year':year,'universe':universe,'enrolment':int(e),'school_count':int(n)})
         if universe=='broad_state':
             for state,z in x.groupby('state'):
                 if len(z)<500:continue
                 s,_=fit_counterfactual(z.enrol.value_counts().to_dict(),250)
                 if s:
-                    # rough normal-score diagnostic for ranking only
                     den=max(s['expected_above']+s['expected_below'],1);se=math.sqrt(2/den);p=math.erfc(abs(s['heaping_adjusted_asymmetry']/se)/math.sqrt(2));state_rows.append({'academic_year':year,'state':str(state),'n_schools_0_400':len(z),'p':p,**s})
     bh(state_rows)
     write_csv(out/'density_counts_0_400.csv',all_counts);write_csv(out/'threshold_excess.csv',all_thresh);write_csv(out/'state_250_excess.csv',state_rows)
