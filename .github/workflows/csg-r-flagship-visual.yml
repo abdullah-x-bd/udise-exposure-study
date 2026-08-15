@@ -34,6 +34,16 @@ jobs:
       - name: Render flagship figure
         run: Rscript studies/composite_school_grant/figures/flagship_policy_prism.R
 
+      - name: Upload rendered outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: csg-policy-prism-r
+          path: |
+            studies/composite_school_grant/figures/rendered/csg_policy_prism_R.png
+            studies/composite_school_grant/figures/rendered/csg_policy_prism_R.svg
+            studies/composite_school_grant/figures/rendered/csg_policy_prism_R.pdf
+          if-no-files-found: error
+
       - name: Commit rendered outputs
         run: |
           git config user.name "github-actions[bot]"
