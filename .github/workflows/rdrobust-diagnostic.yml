@@ -1,0 +1,32 @@
+name: rdrobust diagnostic
+on:
+  push:
+    branches: [research/composite-school-grant-study]
+    paths: [.github/workflows/rdrobust-diagnostic.yml]
+  workflow_dispatch:
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'rdrobust==1.3.0'
+      - name: Synthetic calls
+        run: |
+          python - <<'PY'
+          import numpy as np, pandas as pd
+          from rdrobust import rdrobust
+          np.random.seed(1)
+          x=np.repeat(np.arange(221,281),200).astype(float)
+          y=(x>=250.5).astype(float)*.3+np.random.normal(0,.1,len(x))
+          st=np.random.randint(0,30,len(x))
+          for vce in ['cr3','nn','hc0']:
+              try:
+                  r=rdrobust(y=y,x=x,c=250.5,p=1,q=2,kernel='tri',h=30,b=45,cluster=st,vce=vce,masspoints='adjust',bwcheck=15)
+                  print(vce,'OK',np.asarray(r.coef).reshape(-1)[-1],np.asarray(r.se).reshape(-1)[-1])
+              except Exception as e:
+                  print(vce,'ERROR',type(e).__name__,repr(e))
+          PY
