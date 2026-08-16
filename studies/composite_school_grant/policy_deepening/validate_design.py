@@ -4,10 +4,16 @@ import importlib.util
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+
 spec = importlib.util.spec_from_file_location("logic", ROOT / "logic.py")
 logic = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
 spec.loader.exec_module(logic)
+
+pspec = importlib.util.spec_from_file_location("pab_parser", ROOT / "pab_parser.py")
+pab = importlib.util.module_from_spec(pspec)
+assert pspec.loader is not None
+pspec.loader.exec_module(pab)
 
 
 def boundary_gate() -> None:
@@ -33,6 +39,9 @@ def spell_gate() -> None:
 def catchup_gate() -> None:
     assert logic.cumulative_caught_up([50_000, 100_000], 75_000)
     assert not logic.cumulative_caught_up([50_000, 70_000], 75_000)
+    # Persistence must never be inferred without the required future horizon.
+    fallback_only = [50_000]
+    assert not logic.cumulative_caught_up(fallback_only, 75_000)
 
 
 def churn_gate() -> None:
@@ -57,6 +66,42 @@ def historical_small_band_gate() -> None:
         assert logic.entitlement_amount(n, 10_000) == logic.entitlement_amount(n, 25_000)
 
 
+def pab_parser_gate() -> None:
+    sample = """
+    Budget Demand - Test State F. Y. - 2024-2025
+    1-School Grant - (Enrol > 30 and <=100 )
+    R 56197 0.25000 14049.25000 56197 0.25000 14049.25000 Recommended as Proposed
+    2-School Grant - (Enrol > 100 and <= 250 )
+    R 57080 0.50000 28540.00000 57080 0.50000 28540.00000 Recommended as Proposed
+    3-School Grant - (Enrol > 250 and <= 1000 )
+    R 12353 0.75000 9264.75000 12353 0.75000 9264.75000 Recommended as Proposed
+    4-School Grant - (Enrol > 1000)
+    R 34 1.00000 34.00000 34 1.00000 34.00000 Recommended as Proposed
+    5-School Grant (Enrol >= 1 and <= 30)
+    R 6265 0.25000 1566.25000 6265 0.25000 1566.25000 Recommended as Proposed
+    Total of Composite School Grant 131929 53454.25000 131929 53454.25000
+
+    1-School Grant - (Enrol > 30 and <=100 )
+    R 1038 0.25000 259.50000 1038 0.25000 259.50000 Recommended as Proposed
+    2-School Grant - (Enrol > 100 and <= 250 )
+    R 774 0.50000 387.00000 774 0.50000 387.00000 Recommended as Proposed
+    3-School Grant - (Enrol > 250 and <= 1000 )
+    R 404 0.75000 303.00000 404 0.75000 303.00000 Recommended as Proposed
+    4-School Grant - (Enrol > 1000)
+    R 90 1.00000 90.00000 90 1.00000 90.00000 Recommended as Proposed
+    Total of Composite School Grant 2306 1039.50000 2306 1039.50000
+    """
+    assert pab.normalize_financial_year(sample) == "2024-25"
+    totals, confidence, _ = pab.extract_csg_totals_from_text(sample)
+    assert totals == [53454.25, 1039.5], totals
+    assert confidence == "high"
+    rec = pab.reconcile_band_rows_to_totals(sample)
+    assert len(rec["band_rows"]) == 9, rec["band_rows"]
+    assert rec["band_arithmetic_ok"], rec
+    small = [r for r in rec["band_rows"] if r["band"] == "1_30"]
+    assert len(small) == 1 and small[0]["recommended_unit_lakh"] == 0.25
+
+
 def main() -> None:
     gates = [
         boundary_gate,
@@ -65,6 +110,7 @@ def main() -> None:
         churn_gate,
         state_gate,
         historical_small_band_gate,
+        pab_parser_gate,
     ]
     for gate in gates:
         gate()
