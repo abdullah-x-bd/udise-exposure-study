@@ -34,10 +34,7 @@ BASE_DIR = Path(os.environ.get(
 ))
 BASE_URL = "https://dsel.education.gov.in"
 ARCHIVE_URL = BASE_URL + "/en/pab-minutes?field_financial_year_target_id=All&field_states_target_id=All&page={page}"
-TARGET_FYS = ("2023-24", "2024-25")
-NON_STATE = {
-    "TECHNICAL SUPPORT GROUP", "NCERT", "NCPCR", "PM SHRI", "EDCIL",
-}
+TARGET_FYS = ("2021-22", "2022-23", "2023-24", "2024-25")
 UA = "Mozilla/5.0 (compatible; CSGPolicyAudit/1.0; research use)"
 
 
@@ -56,11 +53,11 @@ def canon_pab_state(state: str, fy: str) -> str:
     return x
 
 
-def crawl_archive(s: requests.Session) -> pd.DataFrame:
+def crawl_archive(s: requests.Session, allowed_states: set[str]) -> pd.DataFrame:
     rows = []
-    seen_nodes = set()
+    seen = set()
     empty_streak = 0
-    for page in range(0, 12):
+    for page in range(0, 15):
         url = ARCHIVE_URL.format(page=page)
         r = s.get(url, timeout=60)
         r.raise_for_status()
@@ -75,45 +72,44 @@ def crawl_archive(s: requests.Session) -> pd.DataFrame:
             if fy not in TARGET_FYS:
                 continue
             state = canon_pab_state(state_raw, fy)
-            if not state or state in NON_STATE:
+            if not state or state not in allowed_states:
                 continue
             links = [urljoin(BASE_URL, a.get("href")) for a in tr.find_all("a", href=True)]
             node_links = [u for u in links if "/node/" in u]
             direct_pdfs = [u for u in links if ".pdf" in u.lower()]
             if not node_links and not direct_pdfs:
-                rows.append({
-                    "state": state, "financial_year": fy, "archive_page": page,
-                    "node_url": None, "direct_pdf_url": None, "archive_status": "no_document_link",
-                })
-                page_rows += 1
-                continue
-            if node_links:
-                for node in node_links:
-                    key = (state, fy, node)
-                    if key in seen_nodes:
-                        continue
-                    seen_nodes.add(key)
+                key = (state, fy, "no_document_link")
+                if key not in seen:
+                    seen.add(key)
                     rows.append({
                         "state": state, "financial_year": fy, "archive_page": page,
-                        "node_url": node, "direct_pdf_url": None, "archive_status": "node",
+                        "node_url": None, "direct_pdf_url": None, "archive_status": "no_document_link",
                     })
                     page_rows += 1
-            else:
-                for pdf in direct_pdfs:
-                    key = (state, fy, pdf)
-                    if key in seen_nodes:
-                        continue
-                    seen_nodes.add(key)
+                continue
+            for u in node_links:
+                key = (state, fy, "node", u)
+                if key not in seen:
+                    seen.add(key)
                     rows.append({
                         "state": state, "financial_year": fy, "archive_page": page,
-                        "node_url": None, "direct_pdf_url": pdf, "archive_status": "direct_pdf",
+                        "node_url": u, "direct_pdf_url": None, "archive_status": "node",
+                    })
+                    page_rows += 1
+            for u in direct_pdfs:
+                key = (state, fy, "pdf", u)
+                if key not in seen:
+                    seen.add(key)
+                    rows.append({
+                        "state": state, "financial_year": fy, "archive_page": page,
+                        "node_url": None, "direct_pdf_url": u, "archive_status": "direct_pdf",
                     })
                     page_rows += 1
         if page_rows == 0:
             empty_streak += 1
         else:
             empty_streak = 0
-        if page >= 4 and empty_streak >= 3:
+        if page >= 8 and empty_streak >= 3:
             break
     out = pd.DataFrame(rows)
     if out.empty:
@@ -124,7 +120,7 @@ def crawl_archive(s: requests.Session) -> pd.DataFrame:
 def node_documents(s: requests.Session, row: pd.Series) -> list[dict]:
     if pd.notna(row.get("direct_pdf_url")):
         u = str(row.direct_pdf_url)
-        return [{"pdf_url": u, "filename": u.rsplit("/", 1)[-1], "link_text": "", "node_url": None}]
+        return [{"pdf_url": u, "filename": u.split("?")[0].rsplit("/", 1)[-1], "link_text": "", "node_url": None}]
     if pd.isna(row.get("node_url")):
         return []
     node = str(row.node_url)
@@ -171,8 +167,19 @@ def pdf_to_text(s: requests.Session, url: str) -> tuple[str, int]:
         return text, total
 
 
+def band_summary(rec: dict, rows: list[dict]) -> None:
+    for band in ("1_30", "31_100", "101_250", "251_1000", "gt1000"):
+        br = [r for r in rows if r["band"] == band]
+        rec[f"band_{band}_recommended_qty"] = sum(float(r["recommended_qty"]) for r in br) if br else np.nan
+        rec[f"band_{band}_recommended_amount_lakh"] = sum(float(r["recommended_amount_lakh"]) for r in br) if br else np.nan
+        units = sorted({round(float(r["recommended_unit_lakh"]), 8) for r in br})
+        rec[f"band_{band}_unit_lakh"] = units[0] if len(units) == 1 else np.nan
+    rec["pab_recommended_school_count"] = sum(float(r["recommended_qty"]) for r in rows) if rows else np.nan
+
+
 def extract_documents(s: requests.Session, archive: pd.DataFrame) -> pd.DataFrame:
     rows = []
+    seen_pdf = set()
     for _, ar in archive.iterrows():
         try:
             docs = node_documents(s, ar)
@@ -183,22 +190,33 @@ def extract_documents(s: requests.Session, archive: pd.DataFrame) -> pd.DataFram
             rows.append({**ar.to_dict(), "parse_status": "no_pdf", "error": None})
             continue
         for doc in docs:
+            pdf_key = (ar.state, ar.financial_year, doc["pdf_url"])
+            if pdf_key in seen_pdf:
+                continue
+            seen_pdf.add(pdf_key)
             rec = {**ar.to_dict(), **doc}
             rec["document_priority"] = pp.document_priority(doc["filename"], doc["link_text"])
             try:
                 text, size = pdf_to_text(s, doc["pdf_url"])
-                amounts, confidence, evidence = pp.extract_csg_totals_from_text(text)
+                reconciled = pp.reconcile_band_rows_to_totals(text)
+                amounts = reconciled["total_amounts_lakh"]
                 rec.update({
                     "pdf_bytes": size,
                     "parse_status": "parsed" if amounts else "no_csg_total",
-                    "parse_confidence": confidence,
+                    "parse_confidence": reconciled["total_confidence"],
                     "n_csg_total_occurrences": len(amounts),
-                    "csg_total_lakhs": float(sum(amounts)) if amounts else np.nan,
-                    "csg_total_rupees": float(sum(amounts) * 100_000) if amounts else np.nan,
-                    "evidence": " || ".join(evidence[:8]),
+                    "csg_total_lakhs": float(reconciled["total_sum_lakh"]) if amounts else np.nan,
+                    "csg_total_rupees": float(reconciled["total_sum_lakh"] * 100_000) if amounts else np.nan,
+                    "evidence": " || ".join(reconciled["total_evidence"][:8]),
+                    "band_rows_json": json.dumps(reconciled["band_rows"], ensure_ascii=False),
+                    "n_band_rows": len(reconciled["band_rows"]),
+                    "band_sum_lakh": reconciled["band_sum_lakh"],
+                    "band_arithmetic_gap_fraction": reconciled["relative_arithmetic_gap"],
+                    "band_arithmetic_ok": reconciled["band_arithmetic_ok"],
                     "contains_prabandh_costing": "prabandh.education.gov.in" in text.lower(),
                     "error": None,
                 })
+                band_summary(rec, reconciled["band_rows"])
             except Exception as e:
                 rec.update({
                     "parse_status": "pdf_error",
@@ -207,6 +225,11 @@ def extract_documents(s: requests.Session, archive: pd.DataFrame) -> pd.DataFram
                     "csg_total_lakhs": np.nan,
                     "csg_total_rupees": np.nan,
                     "evidence": "",
+                    "band_rows_json": "[]",
+                    "n_band_rows": 0,
+                    "band_sum_lakh": np.nan,
+                    "band_arithmetic_gap_fraction": np.nan,
+                    "band_arithmetic_ok": False,
                     "contains_prabandh_costing": False,
                     "error": repr(e),
                 })
@@ -215,10 +238,9 @@ def extract_documents(s: requests.Session, archive: pd.DataFrame) -> pd.DataFram
     return pd.DataFrame(rows)
 
 
-def select_state_year(docs: pd.DataFrame, archive: pd.DataFrame) -> pd.DataFrame:
-    keys = archive[["state", "financial_year"]].drop_duplicates()
+def select_state_year(docs: pd.DataFrame, keys: pd.DataFrame) -> pd.DataFrame:
     chosen = []
-    for _, key in keys.iterrows():
+    for _, key in keys[["state", "financial_year"]].drop_duplicates().iterrows():
         g = docs[(docs.state == key.state) & (docs.financial_year == key.financial_year)].copy()
         parsed = g[g.csg_total_rupees.notna()].copy() if "csg_total_rupees" in g else pd.DataFrame()
         if parsed.empty:
@@ -232,17 +254,21 @@ def select_state_year(docs: pd.DataFrame, archive: pd.DataFrame) -> pd.DataFrame
             })
             continue
         parsed["confidence_rank"] = parsed.parse_confidence.map({"high": 2, "medium": 1}).fillna(0)
+        parsed["arithmetic_rank"] = parsed.band_arithmetic_ok.fillna(False).astype(int)
         parsed = parsed.sort_values(
-            ["document_priority", "confidence_rank", "contains_prabandh_costing", "pdf_bytes"],
-            ascending=[False, False, False, False],
+            ["arithmetic_rank", "document_priority", "confidence_rank", "contains_prabandh_costing", "pdf_bytes"],
+            ascending=[False, False, False, False, False],
         )
         top = parsed.iloc[0]
-        competing = parsed[np.isclose(parsed.document_priority, top.document_priority)]
+        competing = parsed[
+            (parsed.arithmetic_rank == top.arithmetic_rank)
+            & (parsed.document_priority == top.document_priority)
+        ]
         spread = (
             (competing.csg_total_rupees.max() - competing.csg_total_rupees.min()) / top.csg_total_rupees
             if len(competing) > 1 and top.csg_total_rupees > 0 else 0.0
         )
-        chosen.append({
+        out = {
             "state": key.state, "financial_year": key.financial_year,
             "selection_status": "ambiguous" if spread > 0.05 else "selected",
             "selected_pdf_url": top.pdf_url,
@@ -253,8 +279,16 @@ def select_state_year(docs: pd.DataFrame, archive: pd.DataFrame) -> pd.DataFrame
             "n_csg_total_occurrences": top.n_csg_total_occurrences,
             "n_document_candidates": len(g),
             "candidate_spread_fraction": spread,
+            "band_arithmetic_ok": bool(top.band_arithmetic_ok),
+            "band_arithmetic_gap_fraction": top.band_arithmetic_gap_fraction,
+            "pab_recommended_school_count": top.get("pab_recommended_school_count", np.nan),
             "evidence": top.evidence,
-        })
+        }
+        for band in ("1_30", "31_100", "101_250", "251_1000", "gt1000"):
+            for suffix in ("recommended_qty", "recommended_amount_lakh", "unit_lakh"):
+                col = f"band_{band}_{suffix}"
+                out[col] = top.get(col, np.nan)
+        chosen.append(out)
     return pd.DataFrame(chosen)
 
 
@@ -273,7 +307,8 @@ def next_academic_year(fy: str) -> str:
 
 def alignment(selected: pd.DataFrame, formula: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     rows = []
-    for _, p in selected[selected.pab_csg_rupees.notna()].iterrows():
+    use = selected[(selected.pab_csg_rupees.notna()) & (selected.selection_status == "selected")]
+    for _, p in use.iterrows():
         f = formula[formula.state == p.state]
         for _, r in f.iterrows():
             lag = fy_start(p.financial_year) - academic_start(r.academic_year)
@@ -295,6 +330,12 @@ def alignment(selected: pd.DataFrame, formula: pd.DataFrame) -> tuple[pd.DataFra
                     "formula_rupees": val,
                     "formula_minus_pab_rupees": gap,
                     "abs_pct_gap": abs(gap) / float(p.pab_csg_rupees) if p.pab_csg_rupees else np.nan,
+                    "n_schools_formula": r.n_schools,
+                    "pab_recommended_school_count": p.pab_recommended_school_count,
+                    "school_count_gap_fraction": (
+                        (float(r.n_schools)-float(p.pab_recommended_school_count))/float(p.pab_recommended_school_count)
+                        if pd.notna(p.pab_recommended_school_count) and p.pab_recommended_school_count > 0 else np.nan
+                    ),
                     "n_1_30": r.n_1_30,
                     "formula_total_31plus_rupees": r.formula_total_31plus_rupees,
                     "implied_small_school_amount_rupees": (
@@ -317,10 +358,11 @@ def alignment(selected: pd.DataFrame, formula: pd.DataFrame) -> tuple[pd.DataFra
                 "formula_total_rupees": float(f.sum()),
                 "aggregate_abs_pct_gap": float(abs(f.sum()-p.sum())/p.sum()) if p.sum() else np.nan,
                 "median_state_abs_pct_gap": float(g.abs_pct_gap.median()),
+                "mean_state_abs_pct_gap": float(g.abs_pct_gap.mean()),
+                "median_abs_school_count_gap_fraction": float(g.school_count_gap_fraction.abs().median()) if g.school_count_gap_fraction.notna().any() else np.nan,
                 "pearson_state_totals": float(pd.Series(p).corr(pd.Series(f))) if len(g) >= 3 else np.nan,
             })
-    nat = pd.DataFrame(nat_rows)
-    return cand, nat
+    return cand, pd.DataFrame(nat_rows)
 
 
 def main() -> None:
@@ -331,18 +373,20 @@ def main() -> None:
         raise FileNotFoundError(f"Mechanism-base inputs missing under {BASE_DIR}")
     formula = pd.read_csv(formula_path)
     recorded = pd.read_csv(recorded_path)
+    allowed_states = set(formula.state.dropna().astype(str).map(logic.canonical_state))
 
     s = session()
-    archive = crawl_archive(s)
+    archive = crawl_archive(s, allowed_states)
     archive.to_csv(OUT / "pab_archive_inventory.csv", index=False)
-    inventory_counts = archive.groupby("financial_year").state.nunique()
+    keys = archive[["state", "financial_year"]].drop_duplicates()
+    inventory_counts = keys.groupby("financial_year").state.nunique()
     for fy in TARGET_FYS:
         if int(inventory_counts.get(fy, 0)) < 25:
             raise RuntimeError(f"PAB archive inventory for {fy} has only {inventory_counts.get(fy,0)} State/UT labels")
 
     docs = extract_documents(s, archive)
     docs.to_csv(OUT / "pab_document_candidates.csv", index=False)
-    selected = select_state_year(docs, archive)
+    selected = select_state_year(docs, keys)
     selected.to_csv(OUT / "pab_state_year_selected.csv", index=False)
 
     parsed_rate = selected.groupby("financial_year").pab_csg_rupees.apply(lambda x: x.notna().mean())
@@ -350,13 +394,20 @@ def main() -> None:
         raise RuntimeError(f"PAB CSG parser resolved fewer than half of State/UTs in a target year: {parsed_rate.to_dict()}")
 
     cand, nat = alignment(selected, formula)
+    if nat.empty:
+        raise RuntimeError("No formula-to-PAB alignment candidates were constructed")
     cand.to_csv(OUT / "formula_pab_alignment_candidates.csv", index=False)
     nat.to_csv(OUT / "formula_pab_alignment_national.csv", index=False)
 
+    eligible_nat = nat[nat.n_states >= 15].copy()
+    if eligible_nat.empty:
+        raise RuntimeError("No PAB year has at least 15 selected State/UTs for national alignment")
     best_map = (
-        nat.sort_values(["financial_year", "aggregate_abs_pct_gap", "median_state_abs_pct_gap"])
-           .groupby("financial_year", as_index=False)
-           .first()
+        eligible_nat.sort_values([
+            "financial_year", "median_state_abs_pct_gap", "aggregate_abs_pct_gap", "median_abs_school_count_gap_fraction"
+        ])
+        .groupby("financial_year", as_index=False)
+        .first()
     )
     best_map.to_csv(OUT / "best_global_alignment_by_pab_year.csv", index=False)
 
@@ -365,7 +416,7 @@ def main() -> None:
         b = best_map[best_map.financial_year == p.financial_year]
         rec = p.to_dict()
         rec["report_year"] = next_academic_year(p.financial_year)
-        if b.empty or pd.isna(p.pab_csg_rupees):
+        if b.empty or pd.isna(p.pab_csg_rupees) or p.selection_status != "selected":
             rec["mechanism_status"] = "unresolved"
             reconciled_rows.append(rec)
             continue
@@ -386,6 +437,10 @@ def main() -> None:
                 (rec["formula_rupees"] - float(p.pab_csg_rupees)) / float(p.pab_csg_rupees)
                 if p.pab_csg_rupees else np.nan
             )
+            if pd.notna(p.pab_recommended_school_count) and p.pab_recommended_school_count > 0:
+                rec["formula_pab_school_count_gap_fraction"] = (
+                    (float(f.iloc[0].n_schools)-float(p.pab_recommended_school_count))/float(p.pab_recommended_school_count)
+                )
         if not rr.empty:
             rec["recorded_receipt_total_rupees"] = rr.iloc[0].recorded_receipt_total_rupees
             rec["recorded_expenditure_total_rupees"] = rr.iloc[0].recorded_expenditure_total_rupees
@@ -418,14 +473,23 @@ def main() -> None:
     )
     summary.to_csv(OUT / "mechanism_status_summary.csv", index=False)
 
+    band_validation = selected[[
+        c for c in selected.columns
+        if c in {"state", "financial_year", "selection_status", "band_arithmetic_ok", "band_arithmetic_gap_fraction", "pab_recommended_school_count"}
+        or c.startswith("band_")
+    ]].copy()
+    band_validation.to_csv(OUT / "pab_band_validation.csv", index=False)
+
     validation = {
         "target_financial_years": list(TARGET_FYS),
-        "archive_state_year_rows": int(len(archive[["state","financial_year"]].drop_duplicates())),
+        "archive_state_year_rows": int(len(keys)),
         "selected_state_year_rows": int(len(selected)),
         "resolved_state_year_rows": int(selected.pab_csg_rupees.notna().sum()),
         "resolved_rate_by_year": {k: float(v) for k, v in parsed_rate.to_dict().items()},
+        "band_arithmetic_ok_rows": int(selected.band_arithmetic_ok.fillna(False).sum()) if "band_arithmetic_ok" in selected else 0,
         "selection_preserves_unresolved_rows": True,
         "global_alignment_prevents_state_specific_overfit": True,
+        "alignment_primary_objective": "median State/UT absolute percentage PAB-formula gap",
         "source": "Department of School Education & Literacy official PAB archive / PRABANDH costing sheets",
     }
     (OUT / "validation.json").write_text(json.dumps(validation, indent=2), encoding="utf-8")
@@ -436,16 +500,17 @@ def main() -> None:
         f"Target PAB years: {', '.join(TARGET_FYS)}.",
         f"State/UT-year rows inventoried: {validation['archive_state_year_rows']}.",
         f"State/UT-year rows with a parsed CSG recommended total: {validation['resolved_state_year_rows']}.",
+        f"Selected rows with band arithmetic internally reconciled: {validation['band_arithmetic_ok_rows']}.",
         "",
         "## Best national enrolment-to-PAB alignment",
     ]
     for _, r in best_map.iterrows():
         lines.append(
             f"- {r.financial_year}: lag {int(r.lag_from_enrolment_to_pab_fy)}, "
-            f"{r.schedule}, aggregate absolute gap {100*r.aggregate_abs_pct_gap:.1f}% "
-            f"across {int(r.n_states)} parsed State/UTs."
+            f"{r.schedule}; median State/UT absolute gap {100*r.median_state_abs_pct_gap:.1f}%, "
+            f"aggregate gap {100*r.aggregate_abs_pct_gap:.1f}% across {int(r.n_states)} State/UTs."
         )
-    lines += ["", "## Mechanism status counts"]
+    lines += ["", "## Diagnostic mechanism status counts"]
     for _, r in summary.iterrows():
         lines.append(f"- {r.financial_year} / {r.mechanism_status}: {int(r.n_state_uts)}.")
     (OUT / "RESULTS.md").write_text("\n".join(lines), encoding="utf-8")
