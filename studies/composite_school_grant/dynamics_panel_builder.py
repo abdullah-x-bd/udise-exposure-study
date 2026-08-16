@@ -25,11 +25,15 @@ esum = T["esum"]
 
 
 def build(con, repo: str, tok: str, out: Path) -> Path:
-    """Build the annual CSG panel while preserving textual State/UT names.
+    """Build the annual CSG panel while preserving and canonicalizing State/UT names.
 
     The older timing-core builder used nref() on profile_1.state. Because state is a
     text field (for example, 'Uttar Pradesh'), nref() coerced it to numeric and
     silently produced NULL. This builder deliberately uses ref() + VARCHAR instead.
+
+    State labels also change capitalization and separator style across UDISE vintages.
+    We therefore canonicalize case, whitespace, and AND/& spelling before any
+    state-by-year pooling. Genuine historical State/UT changes remain distinct.
     """
     paths = []
     manifest = []
@@ -46,6 +50,10 @@ def build(con, repo: str, tok: str, out: Path) -> Path:
             e12 = esum(ec, 12)
             e8 = esum(ec, 8)
             state_expr = ref(pc, "state", "a") or "NULL"
+            state_canonical = (
+                f"REPLACE(REGEXP_REPLACE(UPPER(TRIM(CAST({state_expr} AS VARCHAR))), "
+                "'\\s+', ' ', 'g'), ' AND ', ' & ')"
+            )
 
             q = out / "year" / f"{year}.parquet"
             q.parent.mkdir(parents=True, exist_ok=True)
@@ -61,7 +69,7 @@ def build(con, repo: str, tok: str, out: Path) -> Path:
                     )
                     SELECT {lit(year)} academic_year,
                            CAST(a.{qid(pi)} AS VARCHAR) pseudocode,
-                           CAST({state_expr} AS VARCHAR) state,
+                           {state_canonical} state,
                            {nref(pc, 'managment', 'a')} management,
                            e.enrol,
                            e.enrol18,
