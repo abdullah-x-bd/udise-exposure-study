@@ -1,0 +1,14 @@
+{
+  "state_ut_rows": 36,
+  "unique_states": 36,
+  "official_pab_entries_confirmed": 36,
+  "externally_resolved_amount_rows": 8,
+  "full_or_comparable_rows": 6,
+  "scope_partial_rows": 2,
+  "unresolved_rows": 28,
+  "duplicate_state_rows": 0,
+  "formula_year": "2022-23",
+  "pab_fy": "2024-25",
+  "record_year": "2025-26",
+  "note": "External approval values are independently sourced. Unresolved rows are never imputed from UDISE formula totals."
+}
