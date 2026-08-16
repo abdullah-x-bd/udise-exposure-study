@@ -42,6 +42,7 @@ def main() -> None:
         FROM spell_rows
     """)
 
+    # A. Cumulative fidelity for every continuous same-entitlement spell.
     con.execute("""
         CREATE TEMP TABLE cumulative AS
         SELECT *,
@@ -102,6 +103,8 @@ def main() -> None:
     save(add_quality_flag(state_cum, "n_rows"), "spell_cumulative_state.csv")
     save(nat_cum, "spell_cumulative_national.csv")
 
+    # B. Event study beginning exactly at a fiscal fallback, Meets -> Below,
+    # while the entitlement remains unchanged. The same spell join guarantees this.
     con.execute("""
         CREATE TEMP TABLE fallback_events AS
         SELECT b.pseudocode,b.state,b.entitlement,b.threshold_label,b.spell_no,
@@ -196,61 +199,70 @@ def main() -> None:
     save(add_quality_flag(state_h, "n_events_available"), "fallback_catchup_by_h_state.csv")
     save(nat_h, "fallback_catchup_by_h_national.csv")
 
-    event_summary = con.execute("""
-        SELECT event_id,state,threshold_label,entitlement,initial_deficit,
+    # Fixed-horizon event classifications. A fallback is called persistent at h=1
+    # or h=2 only when that exact future horizon exists and receipt is complete
+    # through it. Shorter spells are censored, never called persistent.
+    fixed = con.execute("""
+        SELECT e.event_id,e.state,e.threshold_label,e.entitlement,e.initial_deficit,
                MAX(h) AS max_followup_h,
-               MIN(CASE WHEN complete_reporting AND caught_up_complete THEN h END) AS first_catchup_h_complete,
-               MIN(CASE WHEN caught_up_zero THEN h END) AS first_catchup_h_zero,
-               ARG_MAX(CASE WHEN complete_reporting THEN cumulative_gap_complete END,h) AS final_gap_complete,
-               ARG_MAX(cumulative_gap_zero,h) AS final_gap_zero,
-               BOOL_AND(complete_reporting) AS complete_through_observed_horizon
-        FROM event_h2
+               MAX(CASE WHEN h=1 THEN 1 ELSE 0 END) AS available_h1,
+               MAX(CASE WHEN h=2 THEN 1 ELSE 0 END) AS available_h2,
+               MAX(CASE WHEN h=1 AND complete_reporting THEN 1 ELSE 0 END) AS complete_h1,
+               MAX(CASE WHEN h=2 AND complete_reporting THEN 1 ELSE 0 END) AS complete_h2,
+               MAX(CASE WHEN h=1 AND complete_reporting THEN CAST(caught_up_complete AS INTEGER) END) AS caught_up_h1,
+               MAX(CASE WHEN h=2 AND complete_reporting THEN CAST(caught_up_complete AS INTEGER) END) AS caught_up_h2,
+               MAX(CASE WHEN h=1 AND complete_reporting THEN cumulative_gap_complete END) AS gap_h1,
+               MAX(CASE WHEN h=2 AND complete_reporting THEN cumulative_gap_complete END) AS gap_h2
+        FROM fallback_events e
+        JOIN event_h2 h USING(event_id)
         GROUP BY 1,2,3,4,5
     """).df()
-    event_summary["caught_up_by_observed_horizon_complete"] = event_summary["first_catchup_h_complete"].notna()
-    event_summary["persistent_gap_complete"] = (
-        event_summary["complete_through_observed_horizon"]
-        & ~event_summary["caught_up_by_observed_horizon_complete"]
-    )
-    event_summary["partial_catchup_complete"] = (
-        event_summary["persistent_gap_complete"]
-        & event_summary["final_gap_complete"].notna()
-        & (event_summary["final_gap_complete"] < event_summary["initial_deficit"])
-    )
+    save(fixed, "fallback_event_fixed_horizons.csv")
 
-    def summarize_events(df: pd.DataFrame, groups: list[str]) -> pd.DataFrame:
+    def fixed_summary(df: pd.DataFrame, groups: list[str]) -> pd.DataFrame:
         rows = []
-        for keys, g in df.groupby(groups, dropna=False):
-            if not isinstance(keys, tuple):
-                keys = (keys,)
-            rec = dict(zip(groups, keys))
-            complete = g["complete_through_observed_horizon"]
-            rec.update({
-                "n_events": len(g),
-                "n_complete_horizon": int(complete.sum()),
-                "p_ever_caught_up_complete": float(g.loc[complete, "caught_up_by_observed_horizon_complete"].mean()) if complete.any() else np.nan,
-                "p_persistent_gap_complete": float(g["persistent_gap_complete"].mean()),
-                "p_partial_catchup_complete": float(g["partial_catchup_complete"].mean()),
-                "median_initial_deficit": float(g["initial_deficit"].median()),
-                "median_final_gap_complete": float(g["final_gap_complete"].median()) if g["final_gap_complete"].notna().any() else np.nan,
-            })
-            rows.append(rec)
+        for horizon in (1, 2):
+            avail = f"available_h{horizon}"
+            complete = f"complete_h{horizon}"
+            caught = f"caught_up_h{horizon}"
+            gap = f"gap_h{horizon}"
+            grouped = [((), df)] if not groups else df.groupby(groups, dropna=False)
+            for keys, g in grouped:
+                if not isinstance(keys, tuple):
+                    keys = (keys,)
+                rec = dict(zip(groups, keys))
+                g_av = g[g[avail] == 1]
+                g_comp = g[g[complete] == 1]
+                persistent = g_comp[caught].fillna(0) == 0
+                partial = persistent & g_comp[gap].notna() & (g_comp[gap] < g_comp["initial_deficit"])
+                rec.update({
+                    "horizon": horizon,
+                    "n_events_total": len(g),
+                    "n_events_with_horizon": len(g_av),
+                    "n_complete_reporting_horizon": len(g_comp),
+                    "p_caught_up_complete": float(g_comp[caught].mean()) if len(g_comp) else np.nan,
+                    "p_persistent_gap_complete": float(persistent.mean()) if len(g_comp) else np.nan,
+                    "p_partial_catchup_among_persistent": float(partial[persistent].mean()) if persistent.any() else np.nan,
+                    "median_initial_deficit": float(g_comp.initial_deficit.median()) if len(g_comp) else np.nan,
+                    "median_gap_complete": float(g_comp[gap].median()) if g_comp[gap].notna().any() else np.nan,
+                })
+                rows.append(rec)
         return pd.DataFrame(rows)
 
-    state_events = summarize_events(event_summary, ["state", "threshold_label", "entitlement"])
-    nat_events = summarize_events(event_summary, ["threshold_label", "entitlement"])
-    save(add_quality_flag(state_events, "n_events"), "fallback_event_summary_state.csv")
-    save(nat_events, "fallback_event_summary_national.csv")
+    state_fixed = fixed_summary(fixed, ["state", "threshold_label", "entitlement"])
+    nat_fixed = fixed_summary(fixed, ["threshold_label", "entitlement"])
+    save(add_quality_flag(state_fixed, "n_events_with_horizon"), "fallback_fixed_horizon_summary_state.csv")
+    save(nat_fixed, "fallback_fixed_horizon_summary_national.csv")
 
     distinct_states = int(con.execute("SELECT COUNT(DISTINCT state) FROM annual WHERE state IS NOT NULL").fetchone()[0])
-    states_in_output = int(state_events["state"].nunique())
     validation = {
         "fallback_events": n_events,
         "annual_distinct_states": distinct_states,
-        "states_with_fallback_events": states_in_output,
+        "states_with_fallback_events": int(fixed.state.nunique()),
         "state_rows_are_not_filtered": True,
         "primary_missing_rule": "complete reporting only",
         "sensitivity_missing_rule": "missing as zero",
+        "persistence_requires_fixed_future_horizon": True,
     }
     (OUT / "validation.json").write_text(json.dumps(validation, indent=2), encoding="utf-8")
 
@@ -259,6 +271,7 @@ def main() -> None:
         "",
         f"Fiscal fallback events constructed under unchanged entitlement: {n_events:,}.",
         "Primary cumulative catch-up estimates require complete receipt reporting through the stated horizon.",
+        "Persistence is assessed only at fixed h=1 or h=2 follow-up; shorter spells are censored.",
         "Missing-as-zero estimates are retained only as sensitivity analysis.",
         "",
         "## National catch-up after fiscal fallback",
