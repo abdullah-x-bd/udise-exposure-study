@@ -75,10 +75,10 @@ def build(con, repo: str, tok: str, out: Path) -> Path:
                 ) TO {lit(str(q))} (FORMAT PARQUET, COMPRESSION ZSTD)
             """)
             r = con.execute(f"""
-                SELECT COUNT(*) rows,
-                       COUNT(*) FILTER(WHERE enrol IS NOT NULL) with_enrol,
-                       COUNT(*) FILTER(WHERE receipt IS NOT NULL) with_receipt,
-                       COUNT(DISTINCT state) FILTER(WHERE state IS NOT NULL) distinct_states
+                SELECT COUNT(*) AS n_rows,
+                       COUNT(*) FILTER(WHERE enrol IS NOT NULL) AS n_with_enrol,
+                       COUNT(*) FILTER(WHERE receipt IS NOT NULL) AS n_with_receipt,
+                       COUNT(DISTINCT state) FILTER(WHERE state IS NOT NULL) AS n_distinct_states
                 FROM read_parquet({lit(str(q))})
             """).fetchone()
             manifest.append({
