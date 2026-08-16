@@ -1,0 +1,79 @@
+name: CSG policy deepening PAB curated repair
+
+on:
+  push:
+    branches:
+      - research/composite-school-grant-study
+    paths:
+      - ".github/workflows/csg-policy-deepening-pab-curated-repair.yml"
+      - "scripts/csg_pab_curated_repair.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  repair:
+    name: Curated Ministry PAB reconciliation and definitive synthesis
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Compile curated source repair
+        run: |
+          python -m py_compile scripts/csg_pab_curated_repair.py
+          python -m compileall -q studies/composite_school_grant/policy_deepening
+
+      - name: Install document and synthesis dependencies
+        run: |
+          python -m pip install "pandas>=2.2,<3" "numpy>=2,<3" "requests>=2.32,<3" "beautifulsoup4>=4.12,<5" "pypdf>=5,<7"
+          sudo apt-get update -qq
+          sudo apt-get install -y poppler-utils
+
+      - name: Reuse validated UDISE outputs from run 31932348793
+        uses: actions/download-artifact@v4
+        with:
+          name: csg-policy-deepening-udise
+          path: studies/composite_school_grant/outputs/policy_deepening
+          repository: abdullah-x-bd/udise-exposure-study
+          run-id: 31932348793
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run curated official PAB reconciliation
+        env:
+          MECHANISM_BASE_DIR: studies/composite_school_grant/outputs/policy_deepening/mechanism_base
+        run: |
+          python scripts/csg_pab_curated_repair.py
+
+      - name: Upload curated PAB mechanism outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: csg-policy-deepening-pab-curated
+          path: studies/composite_school_grant/outputs/policy_deepening/pab_mechanism/
+          retention-days: 14
+
+      - name: Independent final accounting and source validation
+        run: |
+          python studies/composite_school_grant/policy_deepening/validate_outputs.py --stage final
+
+      - name: Synthesize definitive four-study audit
+        run: |
+          python studies/composite_school_grant/policy_deepening/synthesize.py
+
+      - name: Upload definitive repaired policy audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: csg-policy-deepening-definitive-curated
+          path: studies/composite_school_grant/outputs/policy_deepening/final/
+          retention-days: 14
