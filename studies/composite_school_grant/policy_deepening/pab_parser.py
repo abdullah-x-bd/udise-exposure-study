@@ -17,13 +17,7 @@ def _clean_lines(text: str) -> list[str]:
 
 
 def extract_csg_totals_from_text(text: str) -> tuple[list[float], str, list[str]]:
-    """Extract DoSE&L-recommended `Total of Composite School Grant` amounts in lakhs.
-
-    PRABANDH costing sheets normally print proposed quantity/amount followed by
-    recommended quantity/amount. The final numeric token in the total row/block is
-    therefore treated as the recommended amount. Multiple legitimate totals can
-    occur for elementary and secondary sections and are returned separately.
-    """
+    """Extract DoSE&L-recommended `Total of Composite School Grant` amounts in lakhs."""
     lines = _clean_lines(text)
     amounts: list[float] = []
     evidence: list[str] = []
@@ -36,12 +30,7 @@ def extract_csg_totals_from_text(text: str) -> tuple[list[float], str, list[str]
         if len(NUMBER_RE.findall(line)) < 2:
             candidates.append(" ".join(lines[i:i + 2]))
             candidates.append(" ".join(lines[i:i + 3]))
-        chosen = None
-        for cand in candidates:
-            nums = NUMBER_RE.findall(cand)
-            if len(nums) >= 2:
-                chosen = cand
-                break
+        chosen = next((c for c in candidates if len(NUMBER_RE.findall(c)) >= 2), None)
         if chosen is None:
             continue
         key = chosen.lower()
@@ -67,71 +56,82 @@ def extract_csg_totals_from_text(text: str) -> tuple[list[float], str, list[str]
 
 def classify_csg_band(label: str) -> str | None:
     s = " ".join(str(label).lower().replace("=", " = ").split())
-    # Order matters because threshold numbers occur in more than one band.
     if ("> = 1" in s or ">= 1" in s) and ("< = 30" in s or "<= 30" in s):
         return "1_30"
-    if ("> 30" in s) and (("< = 100" in s) or ("<= 100" in s)):
+    if "> 30" in s and ("< = 100" in s or "<= 100" in s):
         return "31_100"
-    if ("> 100" in s) and (("< = 250" in s) or ("<= 250" in s)):
+    if "> 100" in s and ("< = 250" in s or "<= 250" in s):
         return "101_250"
-    if ("> 250" in s) and (("< = 1000" in s) or ("<= 1000" in s)):
+    if "> 250" in s and ("< = 1000" in s or "<= 1000" in s):
         return "251_1000"
-    if "> 1000" in s and "<" not in s[s.find("> 1000"):]:
+    if "> 1000" in s:
         return "gt1000"
     return None
 
 
 def extract_csg_band_rows_from_text(text: str) -> list[dict]:
-    """Parse band-level recommended quantities and amounts around each CSG total.
+    """Parse band-level recommended quantities/amounts inside each CSG costing block.
 
-    Parsing is deliberately local to the lines preceding each `Total of Composite
-    School Grant` row. This avoids treating unrelated school-grant-looking text in
-    appendices as part of the costing sheet. Each returned row keeps the total-block
-    index so elementary and secondary sections remain distinguishable.
+    Each block starts after the preceding `Total of Composite School Grant` row and
+    ends at the current total. This prevents elementary rows from being re-read as
+    secondary rows. Each label stops before the next School Grant label or the numeric
+    `R ...` record, preventing adjacent threshold labels from contaminating one another.
     """
     lines = _clean_lines(text)
     total_idx = [i for i, line in enumerate(lines) if "total of composite school grant" in line.lower()]
     out: list[dict] = []
-    used: set[tuple] = set()
     for block_no, ti in enumerate(total_idx):
-        lo = max(0, ti - 70)
-        for i in range(lo, ti):
-            if "school grant" not in lines[i].lower() or "total of" in lines[i].lower():
+        prior_total = total_idx[block_no - 1] if block_no > 0 else -1
+        lo = max(prior_total + 1, ti - 80)
+        used: set[tuple] = set()
+        i = lo
+        while i < ti:
+            line = lines[i]
+            if "school grant" not in line.lower() or "total of" in line.lower():
+                i += 1
                 continue
-            label = " ".join(lines[i:min(ti, i + 4)])
-            band = classify_csg_band(label)
-            if band is None:
-                continue
-            row_text = None
+            label_parts = [line]
+            numeric_row = None
             nums: list[float] = []
-            # PRABANDH's numeric record normally begins with R and contains
-            # proposed qty/unit/amount plus recommended qty/unit/amount.
-            for j in range(i, min(ti, i + 7)):
+            for j in range(i + 1, min(ti, i + 8)):
                 candidate = lines[j]
+                if "school grant" in candidate.lower() and "total of" not in candidate.lower():
+                    break
                 if re.match(r"^R(?:\s|$)", candidate, flags=re.I):
                     vals = [float(x.replace(",", "")) for x in NUMBER_RE.findall(candidate)]
                     if len(vals) >= 6:
-                        row_text = candidate
+                        numeric_row = candidate
                         nums = vals
-                        break
-            if row_text is None:
+                    break
+                label_parts.append(candidate)
+            # Some pdftotext layouts keep the numeric R row on the label line.
+            if numeric_row is None and re.search(r"(?:^|\s)R\s+\d", line):
+                tail = re.split(r"(?:^|\s)R\s+", line, maxsplit=1)[-1]
+                vals = [float(x.replace(",", "")) for x in NUMBER_RE.findall(tail)]
+                if len(vals) >= 6:
+                    numeric_row = "R " + tail
+                    nums = vals
+            label = " ".join(label_parts)
+            band = classify_csg_band(label)
+            if band is None or numeric_row is None:
+                i += 1
                 continue
             proposed_qty, proposed_unit, proposed_amount, rec_qty, rec_unit, rec_amount = nums[:6]
-            key = (block_no, band, rec_qty, rec_unit, rec_amount)
-            if key in used:
-                continue
-            used.add(key)
-            out.append({
-                "total_block": block_no,
-                "band": band,
-                "proposed_qty": proposed_qty,
-                "proposed_unit_lakh": proposed_unit,
-                "proposed_amount_lakh": proposed_amount,
-                "recommended_qty": rec_qty,
-                "recommended_unit_lakh": rec_unit,
-                "recommended_amount_lakh": rec_amount,
-                "evidence": f"{label} || {row_text}",
-            })
+            key = (band, rec_qty, rec_unit, rec_amount)
+            if key not in used:
+                used.add(key)
+                out.append({
+                    "total_block": block_no,
+                    "band": band,
+                    "proposed_qty": proposed_qty,
+                    "proposed_unit_lakh": proposed_unit,
+                    "proposed_amount_lakh": proposed_amount,
+                    "recommended_qty": rec_qty,
+                    "recommended_unit_lakh": rec_unit,
+                    "recommended_amount_lakh": rec_amount,
+                    "evidence": f"{label} || {numeric_row}",
+                })
+            i += 1
     return out
 
 
