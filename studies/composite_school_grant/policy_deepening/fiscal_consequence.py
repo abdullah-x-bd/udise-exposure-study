@@ -38,7 +38,9 @@ def main() -> None:
     label = pv.threshold_label_sql("entitlement")
     con.execute(f"""
         CREATE TEMP TABLE spells AS
-        SELECT *, {label} AS threshold_label
+        SELECT *, {label} AS threshold_label,
+               CASE WHEN expenditure IS NULL THEN NULL
+                    ELSE LEAST(expenditure,entitlement*2.0) END AS expenditure_capped2
         FROM spell_rows
     """)
     con.execute("""
@@ -56,10 +58,14 @@ def main() -> None:
                  WHEN NOT a.meets AND b.meets THEN 'below_to_meets'
                  WHEN NOT a.meets AND NOT b.meets THEN 'below_to_below'
                END AS transition_type,
-               CASE WHEN a.expenditure IS NOT NULL THEN a.expenditure/a.entitlement END AS exp_ratio0,
-               CASE WHEN b.expenditure IS NOT NULL THEN b.expenditure/b.entitlement END AS exp_ratio1,
+               CASE WHEN a.expenditure IS NOT NULL THEN a.expenditure/a.entitlement END AS exp_ratio0_raw,
+               CASE WHEN b.expenditure IS NOT NULL THEN b.expenditure/b.entitlement END AS exp_ratio1_raw,
+               CASE WHEN a.expenditure IS NOT NULL THEN a.expenditure_capped2/a.entitlement END AS exp_ratio0_capped2,
+               CASE WHEN b.expenditure IS NOT NULL THEN b.expenditure_capped2/b.entitlement END AS exp_ratio1_capped2,
                CASE WHEN a.expenditure IS NOT NULL AND b.expenditure IS NOT NULL
-                    THEN b.expenditure/b.entitlement-a.expenditure/a.entitlement END AS delta_exp_ratio,
+                    THEN b.expenditure/b.entitlement-a.expenditure/a.entitlement END AS delta_exp_ratio_raw,
+               CASE WHEN a.expenditure IS NOT NULL AND b.expenditure IS NOT NULL
+                    THEN b.expenditure_capped2/b.entitlement-a.expenditure_capped2/a.entitlement END AS delta_exp_ratio_capped2,
                CASE WHEN b.expenditure IS NOT NULL
                     THEN GREATEST(b.entitlement-b.expenditure,0)/b.entitlement END AS exp_shortfall_share1,
                CASE WHEN b.expenditure IS NOT NULL
@@ -78,10 +84,13 @@ def main() -> None:
         SELECT state,threshold_label,entitlement,transition_type,
                COUNT(*) AS n_transitions,
                COUNT(expenditure1) AS n_exp1,
-               COUNT(delta_exp_ratio) AS n_delta_exp,
-               AVG(exp_ratio1) AS mean_exp_ratio_destination,
-               MEDIAN(exp_ratio1) AS median_exp_ratio_destination,
-               AVG(delta_exp_ratio) AS mean_delta_exp_ratio,
+               COUNT(delta_exp_ratio_capped2) AS n_delta_exp,
+               AVG(exp_ratio1_capped2) AS mean_exp_ratio_destination_capped2,
+               AVG(exp_ratio1_raw) AS mean_exp_ratio_destination_raw,
+               MEDIAN(exp_ratio1_raw) AS median_exp_ratio_destination_raw,
+               AVG(delta_exp_ratio_capped2) AS mean_delta_exp_ratio_capped2,
+               AVG(delta_exp_ratio_raw) AS mean_delta_exp_ratio_raw,
+               MEDIAN(delta_exp_ratio_raw) AS median_delta_exp_ratio_raw,
                AVG(exp_shortfall_share1) AS mean_exp_shortfall_share_destination,
                AVG(CAST(expenditure_below_entitlement1 AS DOUBLE)) AS p_expenditure_below_entitlement_destination
         FROM transitions
@@ -93,10 +102,13 @@ def main() -> None:
         SELECT threshold_label,entitlement,transition_type,
                COUNT(*) AS n_transitions,
                COUNT(expenditure1) AS n_exp1,
-               COUNT(delta_exp_ratio) AS n_delta_exp,
-               AVG(exp_ratio1) AS mean_exp_ratio_destination,
-               MEDIAN(exp_ratio1) AS median_exp_ratio_destination,
-               AVG(delta_exp_ratio) AS mean_delta_exp_ratio,
+               COUNT(delta_exp_ratio_capped2) AS n_delta_exp,
+               AVG(exp_ratio1_capped2) AS mean_exp_ratio_destination_capped2,
+               AVG(exp_ratio1_raw) AS mean_exp_ratio_destination_raw,
+               MEDIAN(exp_ratio1_raw) AS median_exp_ratio_destination_raw,
+               AVG(delta_exp_ratio_capped2) AS mean_delta_exp_ratio_capped2,
+               AVG(delta_exp_ratio_raw) AS mean_delta_exp_ratio_raw,
+               MEDIAN(delta_exp_ratio_raw) AS median_delta_exp_ratio_raw,
                AVG(exp_shortfall_share1) AS mean_exp_shortfall_share_destination,
                AVG(CAST(expenditure_below_entitlement1 AS DOUBLE)) AS p_expenditure_below_entitlement_destination
         FROM transitions
@@ -109,9 +121,11 @@ def main() -> None:
 
     cell = con.execute("""
         SELECT state,threshold_label,entitlement,event_cycle,transition_type,
-               COUNT(delta_exp_ratio) AS n_delta,
-               AVG(delta_exp_ratio) AS mean_delta_exp_ratio,
-               AVG(exp_ratio1) AS mean_exp_ratio_destination
+               COUNT(delta_exp_ratio_capped2) AS n_delta,
+               AVG(delta_exp_ratio_capped2) AS mean_delta_exp_ratio_capped2,
+               AVG(delta_exp_ratio_raw) AS mean_delta_exp_ratio_raw,
+               AVG(exp_ratio1_capped2) AS mean_exp_ratio_destination_capped2,
+               MEDIAN(exp_ratio1_raw) AS median_exp_ratio_destination_raw
         FROM transitions
         WHERE transition_type<>'receipt_missing'
         GROUP BY 1,2,3,4,5
@@ -124,8 +138,10 @@ def main() -> None:
         keys = ["state", "threshold_label", "entitlement", "event_cycle"]
         z = x.merge(y, on=keys, suffixes=("_a", "_b"), how="outer")
         z["contrast"] = name
-        z["delta_exp_ratio_contrast"] = z["mean_delta_exp_ratio_a"] - z["mean_delta_exp_ratio_b"]
-        z["destination_exp_ratio_contrast"] = z["mean_exp_ratio_destination_a"] - z["mean_exp_ratio_destination_b"]
+        z["delta_exp_ratio_contrast_capped2"] = z["mean_delta_exp_ratio_capped2_a"] - z["mean_delta_exp_ratio_capped2_b"]
+        z["delta_exp_ratio_contrast_raw"] = z["mean_delta_exp_ratio_raw_a"] - z["mean_delta_exp_ratio_raw_b"]
+        z["destination_exp_ratio_contrast_capped2"] = z["mean_exp_ratio_destination_capped2_a"] - z["mean_exp_ratio_destination_capped2_b"]
+        z["destination_median_exp_ratio_contrast_raw"] = z["median_exp_ratio_destination_raw_a"] - z["median_exp_ratio_destination_raw_b"]
         z["harmonic_weight"] = np.where(
             (z["n_delta_a"].fillna(0) > 0) & (z["n_delta_b"].fillna(0) > 0),
             2 * z["n_delta_a"] * z["n_delta_b"] / (z["n_delta_a"] + z["n_delta_b"]),
@@ -139,29 +155,41 @@ def main() -> None:
     save(contrasts, "matched_cell_contrasts.csv")
 
     pooled_rows = []
-    for (contrast_name, th), g in contrasts.groupby(["contrast", "threshold_label"], dropna=False):
-        good = g[g.harmonic_weight.notna() & g.delta_exp_ratio_contrast.notna()]
-        if good.empty:
-            continue
-        w = good.harmonic_weight.to_numpy(float)
-        d = good.delta_exp_ratio_contrast.to_numpy(float)
-        dest = good.destination_exp_ratio_contrast.to_numpy(float)
-        pooled_rows.append({
-            "contrast": contrast_name,
-            "threshold_label": th,
-            "n_state_cycle_cells": len(good),
-            "weighted_delta_exp_ratio_contrast": float(np.average(d, weights=w)),
-            "equal_cell_delta_exp_ratio_contrast": float(np.mean(d)),
-            "weighted_destination_exp_ratio_contrast": float(np.average(dest, weights=w)),
-        })
+    for min_per_arm in (10, 30, 50):
+        for (contrast_name, th), g in contrasts.groupby(["contrast", "threshold_label"], dropna=False):
+            good = g[
+                g.harmonic_weight.notna()
+                & g.delta_exp_ratio_contrast_capped2.notna()
+                & (g.n_delta_a >= min_per_arm)
+                & (g.n_delta_b >= min_per_arm)
+            ]
+            if good.empty:
+                continue
+            w = good.harmonic_weight.to_numpy(float)
+            d = good.delta_exp_ratio_contrast_capped2.to_numpy(float)
+            dr = good.delta_exp_ratio_contrast_raw.to_numpy(float)
+            dest = good.destination_exp_ratio_contrast_capped2.to_numpy(float)
+            pooled_rows.append({
+                "contrast": contrast_name,
+                "threshold_label": th,
+                "min_per_arm": min_per_arm,
+                "n_state_cycle_cells": len(good),
+                "weighted_delta_exp_ratio_contrast_capped2": float(np.average(d, weights=w)),
+                "equal_cell_delta_exp_ratio_contrast_capped2": float(np.mean(d)),
+                "weighted_delta_exp_ratio_contrast_raw": float(np.average(dr, weights=w)),
+                "weighted_destination_exp_ratio_contrast_capped2": float(np.average(dest, weights=w)),
+            })
     pooled = pd.DataFrame(pooled_rows)
     save(pooled, "matched_contrasts_national.csv")
 
     corr_state = con.execute("""
         SELECT state,threshold_label,entitlement,
                COUNT(*) FILTER(WHERE receipt IS NOT NULL AND expenditure IS NOT NULL) AS n_both,
+               CORR(LEAST(receipt,entitlement*2.0)/entitlement,
+                    LEAST(expenditure,entitlement*2.0)/entitlement)
+                   FILTER(WHERE receipt IS NOT NULL AND expenditure IS NOT NULL) AS corr_receipt_expenditure_ratio_capped2,
                CORR(receipt/entitlement,expenditure/entitlement)
-                   FILTER(WHERE receipt IS NOT NULL AND expenditure IS NOT NULL) AS corr_receipt_expenditure_ratio,
+                   FILTER(WHERE receipt IS NOT NULL AND expenditure IS NOT NULL) AS corr_receipt_expenditure_ratio_raw,
                AVG(CASE WHEN receipt IS NOT NULL AND expenditure IS NOT NULL
                         THEN ABS(receipt-expenditure)/entitlement END) AS mean_abs_receipt_expenditure_gap_ratio
         FROM spells
@@ -171,8 +199,11 @@ def main() -> None:
     corr_nat = con.execute("""
         SELECT threshold_label,entitlement,
                COUNT(*) FILTER(WHERE receipt IS NOT NULL AND expenditure IS NOT NULL) AS n_both,
+               CORR(LEAST(receipt,entitlement*2.0)/entitlement,
+                    LEAST(expenditure,entitlement*2.0)/entitlement)
+                   FILTER(WHERE receipt IS NOT NULL AND expenditure IS NOT NULL) AS corr_receipt_expenditure_ratio_capped2,
                CORR(receipt/entitlement,expenditure/entitlement)
-                   FILTER(WHERE receipt IS NOT NULL AND expenditure IS NOT NULL) AS corr_receipt_expenditure_ratio,
+                   FILTER(WHERE receipt IS NOT NULL AND expenditure IS NOT NULL) AS corr_receipt_expenditure_ratio_raw,
                AVG(CASE WHEN receipt IS NOT NULL AND expenditure IS NOT NULL
                         THEN ABS(receipt-expenditure)/entitlement END) AS mean_abs_receipt_expenditure_gap_ratio
         FROM spells
@@ -192,7 +223,8 @@ def main() -> None:
     """)
     con.execute("""
         CREATE TEMP TABLE fallback_exp_follow AS
-        SELECT e.*,s.spell_age-e.event_age AS h,s.expenditure
+        SELECT e.*,s.spell_age-e.event_age AS h,s.expenditure,
+               CASE WHEN s.expenditure IS NULL THEN NULL ELSE LEAST(s.expenditure,s.entitlement*2.0) END AS expenditure_capped2
         FROM fallback_events e
         JOIN spells s
           ON e.pseudocode=s.pseudocode
@@ -205,6 +237,7 @@ def main() -> None:
                COUNT(*) OVER w AS horizon_rows,
                COUNT(expenditure) OVER w AS reported_exp_rows,
                SUM(expenditure) OVER w AS cumulative_expenditure_reported,
+               SUM(expenditure_capped2) OVER w AS cumulative_expenditure_capped2,
                SUM(COALESCE(expenditure,0)) OVER w AS cumulative_expenditure_zero
         FROM fallback_exp_follow
         WINDOW w AS (
@@ -217,7 +250,9 @@ def main() -> None:
                COUNT(DISTINCT event_id) AS n_events,
                COUNT(DISTINCT event_id) FILTER(WHERE reported_exp_rows=horizon_rows) AS n_complete_exp,
                AVG(CASE WHEN reported_exp_rows=horizon_rows
-                        THEN cumulative_expenditure_reported/(entitlement*(h+1)) END) AS mean_cumulative_exp_ratio_complete,
+                        THEN cumulative_expenditure_capped2/(entitlement*(h+1)) END) AS mean_cumulative_exp_ratio_complete_capped2,
+               AVG(CASE WHEN reported_exp_rows=horizon_rows
+                        THEN cumulative_expenditure_reported/(entitlement*(h+1)) END) AS mean_cumulative_exp_ratio_complete_raw,
                AVG(CASE WHEN reported_exp_rows=horizon_rows
                         THEN CAST(cumulative_expenditure_reported>=entitlement*(h+1) AS DOUBLE) END) AS p_cumulative_exp_atleast_entitlement_complete,
                AVG(cumulative_expenditure_zero/(entitlement*(h+1))) AS mean_cumulative_exp_ratio_missing_zero
@@ -230,7 +265,9 @@ def main() -> None:
                COUNT(DISTINCT event_id) AS n_events,
                COUNT(DISTINCT event_id) FILTER(WHERE reported_exp_rows=horizon_rows) AS n_complete_exp,
                AVG(CASE WHEN reported_exp_rows=horizon_rows
-                        THEN cumulative_expenditure_reported/(entitlement*(h+1)) END) AS mean_cumulative_exp_ratio_complete,
+                        THEN cumulative_expenditure_capped2/(entitlement*(h+1)) END) AS mean_cumulative_exp_ratio_complete_capped2,
+               AVG(CASE WHEN reported_exp_rows=horizon_rows
+                        THEN cumulative_expenditure_reported/(entitlement*(h+1)) END) AS mean_cumulative_exp_ratio_complete_raw,
                AVG(CASE WHEN reported_exp_rows=horizon_rows
                         THEN CAST(cumulative_expenditure_reported>=entitlement*(h+1) AS DOUBLE) END) AS p_cumulative_exp_atleast_entitlement_complete,
                AVG(cumulative_expenditure_zero/(entitlement*(h+1))) AS mean_cumulative_exp_ratio_missing_zero
@@ -245,6 +282,10 @@ def main() -> None:
         "observed_receipt_transitions": n_trans,
         "fiscal_fallback_events": int(con.execute("SELECT COUNT(*) FROM fallback_events").fetchone()[0]),
         "entitlement_change_cannot_enter_transition_table": True,
+        "primary_expenditure_estimand": "ratio capped at 2x nominal entitlement",
+        "raw_and_median_outcomes_retained": True,
+        "national_matched_contrast_minimum_primary_arm_size": 30,
+        "robustness_minimum_arm_sizes": [10, 30, 50],
         "primary_expenditure_missing_rule": "reported-only",
         "sensitivity_expenditure_missing_rule": "missing-as-zero in follow-up only",
         "interpretation": "descriptive fiscal consequence; not causal effect",
@@ -256,16 +297,18 @@ def main() -> None:
         "",
         f"Observed same-entitlement receipt transitions: {n_trans:,}.",
         f"Receipt fallback events followed for expenditure: {validation['fiscal_fallback_events']:,}.",
+        "Primary expenditure means are capped at 2x entitlement; raw means and medians are retained as secondary diagnostics.",
+        "Primary matched comparisons require at least 30 observations in each transition arm within a State x band x cycle cell.",
+        "These are descriptive fiscal consequences, not causal effects.",
         "",
-        "Primary comparisons are within State x entitlement band x aligned cycle and are descriptive, not causal.",
-        "",
-        "## National matched contrasts",
+        "## National matched contrasts at primary support threshold",
     ]
-    for _, r in pooled.iterrows():
+    primary = pooled[pooled.min_per_arm == 30] if not pooled.empty else pooled
+    for _, r in primary.iterrows():
         lines.append(
             f"- {r.contrast}, {r.threshold_label}: "
-            f"weighted change-in-expenditure-ratio contrast {r.weighted_delta_exp_ratio_contrast:.3f} "
-            f"across {int(r.n_state_cycle_cells)} State-cycle cells."
+            f"weighted capped change-in-expenditure-ratio contrast {r.weighted_delta_exp_ratio_contrast_capped2:.3f} "
+            f"across {int(r.n_state_cycle_cells)} supported State-cycle cells."
         )
     (OUT / "RESULTS.md").write_text("\n".join(lines), encoding="utf-8")
     print("\n".join(lines))
