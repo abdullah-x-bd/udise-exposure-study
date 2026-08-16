@@ -12,19 +12,22 @@ def normalize_financial_year(text: str) -> str | None:
     return f"{m.group(1)}-{m.group(2)[-2:]}"
 
 
+def _clean_lines(text: str) -> list[str]:
+    return [" ".join(line.split()) for line in str(text).splitlines()]
+
+
 def extract_csg_totals_from_text(text: str) -> tuple[list[float], str, list[str]]:
-    """Extract DoSE&L-recommended 'Total of Composite School Grant' amounts in lakhs.
+    """Extract DoSE&L-recommended `Total of Composite School Grant` amounts in lakhs.
 
     PRABANDH costing sheets normally print proposed quantity/amount followed by
     recommended quantity/amount. The final numeric token in the total row/block is
     therefore treated as the recommended amount. Multiple legitimate totals can
     occur for elementary and secondary sections and are returned separately.
     """
-    lines = [" ".join(line.split()) for line in str(text).splitlines()]
+    lines = _clean_lines(text)
     amounts: list[float] = []
     evidence: list[str] = []
     used = set()
-    exact_hits = 0
     block_hits = 0
     for i, line in enumerate(lines):
         if "total of composite school grant" not in line.lower():
@@ -51,9 +54,7 @@ def extract_csg_totals_from_text(text: str) -> tuple[list[float], str, list[str]
             continue
         amounts.append(amount)
         evidence.append(chosen)
-        if chosen == line:
-            exact_hits += 1
-        else:
+        if chosen != line:
             block_hits += 1
     if amounts and block_hits == 0:
         confidence = "high"
@@ -64,10 +65,98 @@ def extract_csg_totals_from_text(text: str) -> tuple[list[float], str, list[str]
     return amounts, confidence, evidence
 
 
+def classify_csg_band(label: str) -> str | None:
+    s = " ".join(str(label).lower().replace("=", " = ").split())
+    # Order matters because threshold numbers occur in more than one band.
+    if ("> = 1" in s or ">= 1" in s) and ("< = 30" in s or "<= 30" in s):
+        return "1_30"
+    if ("> 30" in s) and (("< = 100" in s) or ("<= 100" in s)):
+        return "31_100"
+    if ("> 100" in s) and (("< = 250" in s) or ("<= 250" in s)):
+        return "101_250"
+    if ("> 250" in s) and (("< = 1000" in s) or ("<= 1000" in s)):
+        return "251_1000"
+    if "> 1000" in s and "<" not in s[s.find("> 1000"):]:
+        return "gt1000"
+    return None
+
+
+def extract_csg_band_rows_from_text(text: str) -> list[dict]:
+    """Parse band-level recommended quantities and amounts around each CSG total.
+
+    Parsing is deliberately local to the lines preceding each `Total of Composite
+    School Grant` row. This avoids treating unrelated school-grant-looking text in
+    appendices as part of the costing sheet. Each returned row keeps the total-block
+    index so elementary and secondary sections remain distinguishable.
+    """
+    lines = _clean_lines(text)
+    total_idx = [i for i, line in enumerate(lines) if "total of composite school grant" in line.lower()]
+    out: list[dict] = []
+    used: set[tuple] = set()
+    for block_no, ti in enumerate(total_idx):
+        lo = max(0, ti - 70)
+        for i in range(lo, ti):
+            if "school grant" not in lines[i].lower() or "total of" in lines[i].lower():
+                continue
+            label = " ".join(lines[i:min(ti, i + 4)])
+            band = classify_csg_band(label)
+            if band is None:
+                continue
+            row_text = None
+            nums: list[float] = []
+            # PRABANDH's numeric record normally begins with R and contains
+            # proposed qty/unit/amount plus recommended qty/unit/amount.
+            for j in range(i, min(ti, i + 7)):
+                candidate = lines[j]
+                if re.match(r"^R(?:\s|$)", candidate, flags=re.I):
+                    vals = [float(x.replace(",", "")) for x in NUMBER_RE.findall(candidate)]
+                    if len(vals) >= 6:
+                        row_text = candidate
+                        nums = vals
+                        break
+            if row_text is None:
+                continue
+            proposed_qty, proposed_unit, proposed_amount, rec_qty, rec_unit, rec_amount = nums[:6]
+            key = (block_no, band, rec_qty, rec_unit, rec_amount)
+            if key in used:
+                continue
+            used.add(key)
+            out.append({
+                "total_block": block_no,
+                "band": band,
+                "proposed_qty": proposed_qty,
+                "proposed_unit_lakh": proposed_unit,
+                "proposed_amount_lakh": proposed_amount,
+                "recommended_qty": rec_qty,
+                "recommended_unit_lakh": rec_unit,
+                "recommended_amount_lakh": rec_amount,
+                "evidence": f"{label} || {row_text}",
+            })
+    return out
+
+
+def reconcile_band_rows_to_totals(text: str) -> dict:
+    totals, confidence, evidence = extract_csg_totals_from_text(text)
+    rows = extract_csg_band_rows_from_text(text)
+    band_sum = sum(float(r["recommended_amount_lakh"]) for r in rows)
+    total_sum = sum(totals)
+    rel_gap = abs(band_sum - total_sum) / total_sum if total_sum > 0 and rows else None
+    return {
+        "total_amounts_lakh": totals,
+        "total_sum_lakh": total_sum,
+        "band_rows": rows,
+        "band_sum_lakh": band_sum,
+        "relative_arithmetic_gap": rel_gap,
+        "total_confidence": confidence,
+        "total_evidence": evidence,
+        "band_arithmetic_ok": bool(rel_gap is not None and rel_gap <= 0.005),
+    }
+
+
 def document_priority(filename: str, link_text: str = "") -> int:
     s = f"{filename} {link_text}".lower()
     score = 0
-    if "revised" in s:
+    if "revised" in s or "revision" in s:
         score += 4
     if "pab" in s or "minutes" in s or "mom" in s:
         score += 2
