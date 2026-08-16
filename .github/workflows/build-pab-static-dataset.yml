@@ -1,0 +1,49 @@
+name: Build frozen PAB CSG dataset
+
+on:
+  push:
+    branches:
+      - research/composite-school-grant-study
+    paths:
+      - "scripts/build_pab_static_dataset.py"
+      - ".github/workflows/build-pab-static-dataset.yml"
+      - "studies/composite_school_grant/policy_deepening/pab_parser.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install "pandas>=2.2,<3" "requests>=2.32,<3" "beautifulsoup4>=4.12,<5" "pypdf>=5,<7"
+          sudo apt-get update -qq
+          sudo apt-get install -y poppler-utils
+      - name: Build frozen PAB CSG research inputs
+        run: |
+          python scripts/build_pab_static_dataset.py
+      - name: Validate outputs exist
+        run: |
+          test -s studies/composite_school_grant/data/pab_csg_source_manifest.csv
+          test -s studies/composite_school_grant/data/pab_csg_state_year.csv
+          test -s studies/composite_school_grant/data/pab_csg_static_build_audit.json
+          cat studies/composite_school_grant/data/pab_csg_static_build_audit.json
+      - name: Upload frozen dataset
+        uses: actions/upload-artifact@v4
+        with:
+          name: pab-csg-static-dataset
+          path: |
+            studies/composite_school_grant/data/pab_csg_source_manifest.csv
+            studies/composite_school_grant/data/pab_csg_document_extracts.csv
+            studies/composite_school_grant/data/pab_csg_state_year.csv
+            studies/composite_school_grant/data/pab_csg_static_build_audit.json
+          retention-days: 14
