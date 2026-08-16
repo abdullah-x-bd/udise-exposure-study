@@ -1,0 +1,156 @@
+name: CSG policy deepening audit
+
+on:
+  push:
+    branches:
+      - research/composite-school-grant-study
+    paths:
+      - ".github/workflows/csg-policy-deepening-audit.yml"
+      - "studies/composite_school_grant/policy_deepening/**"
+      - "studies/composite_school_grant/dynamics_panel_builder.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: csg-policy-deepening-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  preflight:
+    name: Pre-launch compilation and design gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile all policy-deepening scripts
+        run: |
+          python -m compileall -q studies/composite_school_grant/policy_deepening
+      - name: Run synthetic design and parser gates
+        run: |
+          python studies/composite_school_grant/policy_deepening/validate_design.py
+
+  udise_core:
+    name: Catch-up, churn, fiscal consequence, and mechanism base
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install analysis dependencies
+        run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3" "numpy>=2,<3" "scipy>=1.13,<2" "statsmodels>=0.14,<1" "rdrobust>=1.3,<2" "matplotlib>=3.10,<4"
+      - name: Build shared validated eight-year panel once
+        run: |
+          python studies/composite_school_grant/policy_deepening/build_policy_panel.py
+      - name: Study 1 - cumulative catch-up
+        run: |
+          python studies/composite_school_grant/policy_deepening/cumulative_catchup.py
+      - name: Study 2 - threshold churn and smoothing counterfactuals
+        run: |
+          python studies/composite_school_grant/policy_deepening/threshold_churn.py
+      - name: Study 3 - fiscal consequence
+        run: |
+          python studies/composite_school_grant/policy_deepening/fiscal_consequence.py
+      - name: Study 4A - all-State UDISE formula and recorded-finance base
+        run: |
+          python studies/composite_school_grant/policy_deepening/mechanism_base.py
+      - name: Independent core accounting validation
+        run: |
+          python studies/composite_school_grant/policy_deepening/validate_outputs.py --stage core
+      - name: Upload validated UDISE deepening outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: csg-policy-deepening-udise
+          path: |
+            studies/composite_school_grant/outputs/policy_deepening/panel_manifest.json
+            studies/composite_school_grant/outputs/policy_deepening/cumulative_catchup/
+            studies/composite_school_grant/outputs/policy_deepening/threshold_churn/
+            studies/composite_school_grant/outputs/policy_deepening/fiscal_consequence/
+            studies/composite_school_grant/outputs/policy_deepening/mechanism_base/
+          retention-days: 14
+
+  pab_mechanism:
+    name: Study 4B - all-State official PAB mechanism audit
+    needs: udise_core
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install document-audit dependencies
+        run: |
+          python -m pip install "pandas>=2.2,<3" "numpy>=2,<3" "requests>=2.32,<3" "beautifulsoup4>=4.12,<5" "pypdf>=5,<7"
+          sudo apt-get update -qq
+          sudo apt-get install -y poppler-utils
+      - uses: actions/download-artifact@v4
+        with:
+          name: csg-policy-deepening-udise
+          path: studies/composite_school_grant/outputs/policy_deepening
+      - name: Inventory mechanism-base inputs
+        run: |
+          find studies/composite_school_grant/outputs/policy_deepening/mechanism_base -maxdepth 1 -type f -print | sort
+      - name: Run official PAB and PRABANDH costing reconciliation
+        env:
+          MECHANISM_BASE_DIR: studies/composite_school_grant/outputs/policy_deepening/mechanism_base
+        run: |
+          python studies/composite_school_grant/policy_deepening/pab_mechanism.py
+      - name: Upload PAB mechanism outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: csg-policy-deepening-pab
+          path: studies/composite_school_grant/outputs/policy_deepening/pab_mechanism/
+          retention-days: 14
+
+  synthesize:
+    name: Validate and synthesize definitive policy audit
+    needs: [udise_core, pab_mechanism]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install synthesis dependencies
+        run: |
+          python -m pip install "pandas>=2.2,<3" "numpy>=2,<3"
+      - uses: actions/download-artifact@v4
+        with:
+          name: csg-policy-deepening-udise
+          path: studies/composite_school_grant/outputs/policy_deepening
+      - uses: actions/download-artifact@v4
+        with:
+          name: csg-policy-deepening-pab
+          path: studies/composite_school_grant/outputs/policy_deepening/pab_mechanism
+      - name: Independent final accounting and source-preservation validation
+        run: |
+          python studies/composite_school_grant/policy_deepening/validate_outputs.py --stage final
+      - name: Synthesize four-study definitive audit
+        run: |
+          python studies/composite_school_grant/policy_deepening/synthesize.py
+      - name: Upload definitive policy-deepening audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: csg-policy-deepening-definitive
+          path: studies/composite_school_grant/outputs/policy_deepening/final/
+          retention-days: 14
