@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/csg-entitlement-dynamics-audit.yml"
       - "studies/composite_school_grant/entitlement_dynamics/**"
+      - "studies/composite_school_grant/dynamics_panel_builder.py"
   workflow_dispatch:
 
 permissions:
