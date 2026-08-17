@@ -1,0 +1,69 @@
+name: Muslim government school equity prelaunch audit
+
+on:
+  push:
+    branches:
+      - research/muslim-government-school-equity
+    paths:
+      - "studies/muslim_government_school_equity/**"
+      - ".github/workflows/muslim-equity-prelaunch-audit.yml"
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install analysis dependencies
+        run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - name: Compile all study programs
+        run: python -m py_compile studies/muslim_government_school_equity/*.py
+      - name: Verify shared source dependency
+        run: test -f studies/composite_school_grant/scripts/03_build_panel.py
+      - name: Run deterministic estimator smoke tests
+        run: |
+          python - <<'PY'
+          import sys
+          import numpy as np
+          import pandas as pd
+          sys.path.insert(0, "studies/muslim_government_school_equity")
+          import common
+
+          expected = [2,3,3,4,4,5,5]
+          got = common.required_primary_teachers(pd.Series([60,61,90,91,120,121,150])).tolist()
+          assert got == expected, (got, expected)
+          assert np.isnan(common.required_primary_teachers(pd.Series([151])).iloc[0])
+
+          q = common.bh_qvalues([0.001,0.02,0.2])
+          assert np.all(np.isfinite(q)) and np.all((q >= 0) & (q <= 1))
+          assert q[0] <= q[1] <= q[2]
+
+          rng = np.random.default_rng(20260817)
+          n = 4000
+          x = rng.normal(size=n)
+          district = np.array([f"d{i%100}" for i in range(n)], dtype=object)
+          state = np.array([f"s{i%20}" for i in range(n)], dtype=object)
+          district_effect = np.array([(i%100)/100 for i in range(n)])
+          y = 2.0*x + district_effect + rng.normal(scale=.2, size=n)
+          fit = common.fit_wls_clustered(
+              y, x[:,None], np.ones(n), state,
+              absorb_groups=[district], names=["x"]
+          )
+          assert abs(fit["coef"]["x"] - 2.0) < 0.05, fit
+          assert fit["clusters"] == 20
+          print("PRELAUNCH_AUDIT_OK")
+          PY
+      - name: Verify study scope declarations
+        run: |
+          grep -q "MAIN_GOV_CODES = (1, 2, 3, 6, 89, 90)" studies/muslim_government_school_equity/common.py
+          grep -q "RTE_CUTOFFS = (60.5, 90.5, 120.5)" studies/muslim_government_school_equity/common.py
+          grep -q "lag_muslim_share" studies/muslim_government_school_equity/run_rte_staffing.py
+          grep -q "district_onset" studies/muslim_government_school_equity/run_failure_to_repair.py
+          grep -q "district_year" studies/muslim_government_school_equity/run_need_inspection.py
+          grep -q "next_is_state_local_government" studies/muslim_government_school_equity/run_need_inspection.py
