@@ -1,13 +1,13 @@
 # Enrolment Integrity and State Administrative Response Time
 
-## Why these extensions matter
+## Scope
 
-This module answers two questions that a single T+3 regression cannot answer.
+This module extends the main CSG analysis in two directions that a single T+3 regression cannot resolve.
 
-1. Does the distribution and longitudinal movement of reported enrolment around 250/251 contain evidence consistent with threshold targeting or false enrolment reporting?
-2. How quickly does the higher-band financial signal emerge after a school crosses 250/251, and do States differ in administrative latency as well as eventual response strength?
+1. It tests whether the distribution and longitudinal movement of reported enrolment around 250/251 contain evidence consistent with threshold targeting or false enrolment reporting.
+2. It measures how quickly the higher-band financial signal emerges after a school crosses 250/251 and whether States differ in administrative latency as well as eventual response strength.
 
-These questions are related but distinct from the main CSG first-stage result.
+These questions are related to, but distinct from, the main CSG threshold-response result.
 
 ---
 
@@ -15,9 +15,9 @@ These questions are related but distinct from the main CSG first-stage result.
 
 ## 1. Year-by-year 0-400 density
 
-For each academic year 2018-19 through 2025-26, the audit counts broad State/UT-government schools at every integer reported enrolment from 0 through 400. It produces a full density figure and a local 220-280 figure with a counterfactual that explicitly models ordinary heaping at multiples of 5, 10, 25, 50 and 100.
+For each academic year from 2018-19 through 2025-26, the audit counts broad State/UT-government schools at every integer reported enrolment from 0 through 400. It produces a full density figure and a local 220-280 figure with a counterfactual that explicitly models ordinary heaping at multiples of 5, 10, 25, 50 and 100.
 
-The graph shows obvious structure at policy/round-number locations, especially 30, 100 and 250. Therefore a visible spike by itself cannot establish strategic manipulation.
+The distributions show clear structure at policy-relevant and round-number locations, especially around 30, 100 and 250. A visible spike by itself therefore cannot establish strategic manipulation.
 
 ### Heaping-adjusted 250/251 asymmetry
 
@@ -34,23 +34,23 @@ The preferred broad-State-government 250/251 asymmetry is:
 | 2024-25 | +7.22% | +2.23% | **0.050** | 75th |
 | 2025-26 | +7.18% | +1.95% | **0.052** | 67th |
 
-There is therefore a real and repeatable density irregularity around 250/251, strongest in 2019-20 through 2021-22 and weaker thereafter.
+There is a real and repeatable density irregularity around 250/251, strongest in 2019-20 through 2021-22 and weaker thereafter.
 
-The exact counts also demonstrate why the relevant threshold is 250/251 rather than 249/250. Examples:
+The exact counts also show why the relevant CSG boundary is 250/251 rather than 249/250. Examples include:
 
 - 2020-21: 646 schools at 250 and 747 at 251.
 - 2021-22: 721 at 250 and 815 at 251.
 - 2022-23: 710 at 250 and 820 at 251.
 
-However, ordinary density evidence is not enough to infer false reporting.
+The density evidence alone is not sufficient to infer false reporting.
 
 ## 2. Other thresholds
 
-The heaping-adjusted asymmetry at 100/101 is much larger, roughly 0.25-0.45 across years. This cannot be treated as cleaner evidence of CSG manipulation because 100 is also implicated by other school-program rules, especially PM POSHAN, and is a strong round number.
+The heaping-adjusted asymmetry at 100/101 is much larger, roughly 0.25-0.45 across years. This cannot be treated as cleaner evidence of CSG manipulation because 100 is also implicated by other school-program rules, especially PM POSHAN, and is itself a highly salient round number.
 
-The 30/31 threshold does not show a stable positive asymmetry.
+The 30/31 threshold does not show a stable positive asymmetry. The 1000/1001 threshold is sparse in many years.
 
-Thus 250/251 remains the cleanest CSG-specific threshold for integrity testing.
+The broader conclusion is that administrative enrolment data exhibit heaping and non-smoothness at several policy-relevant and round-number values. The 250/251 irregularity is smaller and more suitable for CSG-specific integrity tests, but the longitudinal evidence remains necessary before attributing it to the grant rule.
 
 ---
 
@@ -60,7 +60,7 @@ A stronger manipulation test follows schools longitudinally.
 
 For each three-year window, schools beginning within 20 pupils below a threshold are followed into the next year. The audit asks whether they land exactly at the first eligible integer, whether their enrolment increment is exactly the minimum necessary to cross, and whether they then fall back below the threshold one year later.
 
-The true threshold 250/251 is compared with fake thresholds 200/201 and 300/301.
+The true threshold 250/251 is compared with placebo thresholds 200/201 and 300/301.
 
 ## 3. Exact landing at 251 is rare
 
@@ -86,7 +86,7 @@ Examples:
 
 There is no large national excess of schools moving by exactly the minimum number of pupils necessary to hit 251.
 
-## 4. Reversion looks dramatic but also occurs at placebo thresholds
+## 4. Reversion is high at both the true and placebo thresholds
 
 Schools landing exactly at 251 frequently fall back below 251 the following year. The reversion rate is about:
 
@@ -97,7 +97,7 @@ Schools landing exactly at 251 frequently fall back below 251 the following year
 - 2022-23: 70.2%
 - 2023-24: 60.0%
 
-Taken alone, this could look suspicious. But the placebo thresholds show similarly high reversion.
+The placebo thresholds show similarly high reversion.
 
 For example:
 
@@ -105,15 +105,13 @@ For example:
 - 2021-22: 74.3%, **68.1%**, 75.0%.
 - 2022-23: 67.8%, **70.2%**, 60.3%.
 
-High reversion therefore appears to be a general property of school enrolment around arbitrary local thresholds, especially in the pandemic/post-pandemic years, rather than a distinctive 250/251 fingerprint.
+High reversion therefore appears to be a general property of school enrolment around local thresholds, especially in the pandemic and post-pandemic years, rather than a distinctive 250/251 fingerprint.
 
 ## 5. Enrolment-integrity conclusion
 
-The density data are compatible with some threshold-related sorting, particularly in the earlier years. But the longitudinal forensic signatures that would make strategic recruitment or false reporting more persuasive do not distinguish 250/251 from placebo thresholds.
+The density data are compatible with some threshold-related sorting, particularly in the earlier years. The longitudinal signatures that would make strategic recruitment or false reporting more persuasive, however, do not distinguish 250/251 from placebo thresholds.
 
-The defensible conclusion is:
-
-> **Reported enrolment displays a modest, repeatable excess immediately above the 250/251 CSG threshold, strongest in the earlier cohorts. However, schools do not disproportionately land exactly at 251 or revert after doing so relative to comparable fake thresholds. The evidence does not establish systematic threshold gaming, fabricated pupils, or fraud.**
+> **Reported enrolment displays a modest, repeatable excess immediately above the 250/251 CSG threshold, strongest in the earlier cohorts. Schools do not disproportionately land exactly at 251 or revert after doing so relative to comparable placebo thresholds. The evidence does not establish systematic threshold gaming, fabricated pupils or fraud.**
 
 A density spike can arise from legitimate recruitment, ordinary heaping, natural enrolment volatility, reporting processes or strategic behaviour. UDISE aggregate data alone cannot adjudicate false-student reporting.
 
@@ -121,15 +119,15 @@ A density spike can arise from legitimate recruitment, ordinary heaping, natural
 
 # Part III. Dynamic State response curves
 
-## 6. Why fixed T+3 is not enough
+## 6. Why a fixed T+3 snapshot is incomplete
 
-T+3 remains the correct common comparison point because documentary and national empirical evidence place the major formula response there. But a common T+3 snapshot does not distinguish:
+T+3 remains the correct common comparison point because documentary and national empirical evidence place the major formula response there. A common T+3 snapshot, however, cannot distinguish:
 
 - a State that responds quickly and has already reached its plateau;
-- a State that is slow but catches up later;
+- a State that is slow but converges later;
 - a State that remains weak at all observed lags.
 
-A new dynamic analysis therefore estimates the 250/251 first stage for each State at every available lag from the assignment cohort forward.
+The dynamic analysis therefore estimates the 250/251 threshold response for each State at every available lag from the assignment cohort forward.
 
 For each State/cohort it records:
 
@@ -137,7 +135,7 @@ For each State/cohort it records:
 - peak observed response;
 - lag of the peak;
 - first lag reaching 50%, 80% and 90% of the observed peak;
-- raw right-side P(receipt >= Rs 75,000), reported separately rather than conflated with the discontinuity.
+- raw right-side P(receipt >= Rs 75,000), reported separately from the discontinuity.
 
 ## 7. National response time
 
@@ -150,7 +148,7 @@ Across all four correctly aligned cohorts, the national response peaks at **T+3*
 | 2021-22 | 32.53 pp | +3 | +3 |
 | 2022-23 | 32.72 pp | +3 | +3 |
 
-The national raw share of schools just above the threshold reporting >= Rs 75,000 never reaches 80% in these cohort-specific dynamic windows. This is another reason not to define successful administration as reaching 100% raw reporting.
+The national raw share of schools just above the threshold reporting >= Rs 75,000 never reaches 80% in these cohort-specific dynamic windows. This is one reason not to equate raw reporting at the target amount with complete administrative success.
 
 ## 8. State latency and strength are separate dimensions
 
@@ -175,19 +173,19 @@ Restricting interpretation to lags 0 through +3, the four-cohort mean T+3 first 
 - Uttarakhand 5.1 pp
 - Telangana 3.2 pp.
 
-But this ranking alone hides timing. Telangana is the clearest example: its four-cohort mean response is about **16.2 pp at T+2 but only 3.2 pp at T+3**, indicating a systematically earlier financial-record pattern than the national clock. Odisha and Punjab also often attain much of their observed response before +3.
+This ranking alone hides timing. Telangana is the clearest example: its four-cohort mean response is about **16.2 pp at T+2 but only 3.2 pp at T+3**, indicating a systematically earlier financial-record pattern than the national clock. Odisha and Punjab also often attain much of their observed response before +3.
 
-Conversely, some States have older cohorts whose largest later response occurs after +3. Those later peaks must be interpreted cautiously because subsequent annual CSG allocation cycles can enter the later UDISE fields.
+Conversely, some States have older cohorts whose largest later response occurs after +3. Those later peaks require caution because subsequent annual CSG allocation cycles can enter later UDISE fields.
 
-Therefore the fixed T+3 result should remain the common causal/administrative benchmark, while the full curve is used to describe timing heterogeneity.
+The fixed T+3 result therefore remains the common administrative benchmark, while the full response curve describes timing heterogeneity.
 
 ---
 
 # Part IV. School-level time to first higher-band recognition
 
-## 9. Cleaner T+N design
+## 9. School-level T+N design
 
-To get closer to the intuitive question 'after a school crosses the threshold, how long until the higher band appears?', the audit defines:
+The longitudinal recognition analysis defines:
 
 - **crosser**: school moves from 221-250 to 251-280;
 - **control**: school remains in 221-250;
@@ -243,11 +241,11 @@ Only through +3 is currently observable:
 | +2 | 46.0% | 33.1% | 12.9 pp |
 | +3 | 66.4% | 37.7% | **28.7 pp** |
 
-The large common background rate among controls demonstrates why raw 'percentage of eligible schools ever reporting >=75k' cannot be read as entitlement fulfilment.
+The large common background rate among controls demonstrates why the raw percentage of eligible schools ever reporting >=75k cannot be read as formula fulfilment.
 
 ## 11. State time-to-recognition typology
 
-Across all four crossing cohorts with adequate support, the crosser-minus-control event-time curves suggest a useful two-dimensional classification.
+Across all four crossing cohorts with adequate support, the crosser-minus-control event-time curves suggest a two-dimensional classification.
 
 ### High-strength, approximately T+3 systems
 
@@ -281,39 +279,29 @@ In the event-time curves, the average lag reaching 80% of observed net separatio
 - Tamil Nadu
 - Punjab
 
-These have relatively small crosser-control net separation even when followed forward. Weakness and latency should not be conflated: a State can be fast but weak, or slow but eventually stronger.
+These have relatively small crosser-control net separation even when followed forward. Weakness and latency are separate dimensions: a State can be fast but weak, or slow but eventually stronger.
 
-This State typology should be treated as administrative-record evidence, not an audited ranking of States by actual grant-payment speed.
+This typology describes administrative-record behaviour, not audited State rankings by cash-payment speed.
 
 ---
 
-# Part V. What should enter the paper
-
-The two extensions materially improve the study.
+# Part V. Interpretation and use in the main study
 
 ## Enrolment integrity
 
-Show the year-by-year 0-400 enrolment densities as an intuitive descriptive figure. Pair them with the heaping-adjusted 250/251 counterfactual and the exact-crossing/placebo analysis. The figure can motivate scrutiny, while the longitudinal tests prevent overclaiming.
-
-The paper should say that modest bunching exists but the evidence does not establish strategic manipulation or fabricated enrolment.
+The year-by-year 0-400 enrolment densities provide descriptive context for the threshold design. They show substantial non-smoothness around several salient enrolment values. The heaping-adjusted 250/251 counterfactual and exact-crossing/placebo tests then narrow the interpretation: the irregularity is real, but the stronger longitudinal diagnostics do not support a CSG-specific manipulation conclusion.
 
 ## Administrative latency
 
-Retain T+3 as the common national benchmark. Add an event-time State figure with:
+T+3 remains the common national benchmark for threshold comparisons. The event-time analysis adds two distinct quantities:
 
-- x-axis: lag after crossing;
-- y-axis: crosser-minus-control cumulative probability of ever reporting >= Rs 75,000;
-- one curve per State or a selected set of State archetypes.
+1. **latency**: the first lag reaching a specified share of the observed response, including N50 and N80;
+2. **strength**: the eventual observed net response or plateau.
 
-Then summarise States using two quantities:
-
-1. **latency**: N80, first lag reaching 80% of the observed net response;
-2. **strength**: eventual observed net response / plateau.
-
-A State scatter of latency versus strength would distinguish fast-strong, slow-strong, fast-weak and slow-weak administrative systems.
+These quantities separate fast-strong, slow-strong, fast-weak and slow-weak State administrative patterns rather than compressing them into a single ranking.
 
 ## Important limitation
 
-Later event-time recognition can reflect a later annual grant cycle rather than literal late arrival of the original allocation. For this reason the object should be called **time to recorded higher-band recognition**, not 'payment delay of the original grant'.
+Later event-time recognition can reflect a later annual grant cycle rather than literal late arrival of the original allocation. The relevant object is therefore **time to recorded higher-band recognition**, not payment delay of the original grant.
 
-The combination of the documentary T+3 clock, dynamic RD curves and persistent-crosser recognition curves is much stronger than replacing the original T+3 analysis with a single T+N statistic.
+Taken together, the documentary T+3 clock, dynamic threshold-response curves and persistent-crosser recognition curves provide complementary evidence on how the CSG formula appears in school-level administrative records over time.
