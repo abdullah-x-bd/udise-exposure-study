@@ -29,25 +29,27 @@ jobs:
       - run: |
           python -m pip install -e .
           python -m pip install "pandas>=2.2,<3"
-      - name: Patch DuckDB VALUES alias and compile
+      - name: Validate source-native cutoff alias fix
         run: |
-          python - <<'PY'
+          python -m py_compile studies/muslim_government_school_equity/run_rte_crossing_eventstudy.py
+          PYTHONPATH=studies/muslim_government_school_equity python - <<'PY'
           from pathlib import Path
+          import duckdb
           p = Path('studies/muslim_government_school_equity/run_rte_crossing_eventstudy.py')
           s = p.read_text(encoding='utf-8')
-          s = s.replace('c.column0 AS cutoff', 'c.cutoff AS cutoff')
-          s = s.replace('c.column0)', 'c.cutoff)')
-          s = s.replace('c.column0)<=20', 'c.cutoff)<=20')
-          s = s.replace('CROSS JOIN (VALUES {cut_values}) c', 'CROSS JOIN (VALUES {cut_values}) AS c(cutoff)')
-          p.write_text(s, encoding='utf-8')
+          assert 'c.column0' not in s
+          assert 'AS c(cutoff)' in s
+          con = duckdb.connect()
+          got = con.execute('SELECT c.cutoff FROM (VALUES (60.5),(90.5),(120.5)) AS c(cutoff) ORDER BY 1').fetchall()
+          assert got == [(60.5,), (90.5,), (120.5,)]
+          print('cutoff alias smoke test passed:', got)
           PY
-          python -m py_compile studies/muslim_government_school_equity/run_rte_crossing_eventstudy.py
       - name: Run fixed RTE first-crossing event study
         run: PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_rte_crossing_eventstudy.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: muslim-equity-rte-crossing-eventstudy-fixed
+          name: muslim-equity-rte-crossing-eventstudy-fixed-v2
           path: studies/muslim_government_school_equity/outputs/rte_crossing_eventstudy/*
           retention-days: 30
           if-no-files-found: error
