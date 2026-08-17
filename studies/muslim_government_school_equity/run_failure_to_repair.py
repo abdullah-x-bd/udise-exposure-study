@@ -8,90 +8,105 @@ import duckdb
 import numpy as np
 import pandas as pd
 
-from common import add_shares, bh_qvalues, build_panel, fit_wls_clustered, muslim_bin, write_json, write_rows
+from common import bh_qvalues, build_panel, fit_wls_clustered, muslim_bin, write_json, write_rows
 
 OUT = Path("studies/muslim_government_school_equity/outputs/failure_to_repair")
 FAILURES = ("girls_toilet", "boys_toilet", "water", "electricity", "major_repair")
+YEARS = ("2018-19", "2019-20", "2020-21", "2021-22", "2022-23", "2023-24", "2024-25", "2025-26")
 
 
-def _prepare(panel: Path, con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+def _prepare_events(panel: Path, con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     q = str(panel).replace("'", "''")
-    df = con.execute(f"""
-        SELECT academic_year,pseudocode,state,district,rural_urban,management,school_category,lowclass,highclass,
-               is_state_local_government,is_core_government,enrol_c1_12,boys_c1_12,girls_c1_12,
-               general_c1_12,sc_c1_12,st_c1_12,obc_c1_12,muslim_c1_12,christian_c1_12,sikh_c1_12,buddhist_c1_12,parsi_c1_12,jain_c1_12,
-               total_classrooms,classrooms_major_repair,boys_toilets,boys_func_toilets,girls_toilets,girls_func_toilets,
-               water_functional,electricity_functional
-        FROM read_parquet('{q}') WHERE enrol_c1_12 IS NOT NULL
-    """).df()
-    df = add_shares(df, primary=False)
-    years = {y: i for i, y in enumerate(sorted(df.academic_year.unique()))}
-    df["year_index"] = df.academic_year.map(years)
-    df = df.sort_values(["pseudocode", "year_index"]).reset_index(drop=True)
-
-    girls = pd.to_numeric(df["girls_c1_12"], errors="coerce")
-    boys = pd.to_numeric(df["boys_c1_12"], errors="coerce")
-    gfunc = pd.to_numeric(df["girls_func_toilets"], errors="coerce")
-    bfunc = pd.to_numeric(df["boys_func_toilets"], errors="coerce")
-    major = pd.to_numeric(df["classrooms_major_repair"], errors="coerce")
-    rooms = pd.to_numeric(df["total_classrooms"], errors="coerce")
-    df["girls_toilet_ok"] = np.where((girls > 0) & gfunc.notna(), (gfunc > 0).astype(float), np.nan)
-    df["boys_toilet_ok"] = np.where((boys > 0) & bfunc.notna(), (bfunc > 0).astype(float), np.nan)
-    df["water_ok"] = pd.to_numeric(df["water_functional"], errors="coerce")
-    df["electricity_ok"] = pd.to_numeric(df["electricity_functional"], errors="coerce")
-    df["major_repair_ok"] = np.where((rooms > 0) & major.notna(), (major <= 0).astype(float), np.nan)
-
-    for col in ("muslim_share", "sc_share", "st_share", "obc_share", "general_share", "enrol_c1_12", "management", "rural_urban", "girls_toilets", "boys_toilets", "total_classrooms"):
-        df[f"lag_{col}"] = df.groupby("pseudocode")[col].shift(1)
-    df["lag_year_index"] = df.groupby("pseudocode")["year_index"].shift(1)
-    consecutive = df["lag_year_index"].eq(df["year_index"] - 1)
-    for col in ("muslim_share", "sc_share", "st_share", "obc_share", "general_share", "enrol_c1_12", "management", "rural_urban", "girls_toilets", "boys_toilets", "total_classrooms"):
-        df.loc[~consecutive, f"lag_{col}"] = np.nan
-
-    earliest = (
-        df.loc[df["muslim_share"].notna(), ["pseudocode", "year_index", "muslim_share"]]
-        .sort_values(["pseudocode", "year_index"]).drop_duplicates("pseudocode")
-        .rename(columns={"muslim_share": "frozen_muslim_share"})
+    year_case = "CASE academic_year " + " ".join(f"WHEN '{y}' THEN {i}" for i, y in enumerate(YEARS)) + " END"
+    status_cols = {
+        "girls_toilet": "CASE WHEN girls_c1_12>0 AND girls_func_toilets IS NOT NULL THEN CAST(girls_func_toilets>0 AS DOUBLE) END",
+        "boys_toilet": "CASE WHEN boys_c1_12>0 AND boys_func_toilets IS NOT NULL THEN CAST(boys_func_toilets>0 AS DOUBLE) END",
+        "water": "CASE WHEN water_functional IS NOT NULL THEN CAST(water_functional>0 AS DOUBLE) END",
+        "electricity": "CASE WHEN electricity_functional IS NOT NULL THEN CAST(electricity_functional>0 AS DOUBLE) END",
+        "major_repair": "CASE WHEN total_classrooms>0 AND classrooms_major_repair IS NOT NULL THEN CAST(classrooms_major_repair<=0 AS DOUBLE) END",
+    }
+    base_status = ",\n".join(f"{expr} AS {name}_ok" for name, expr in status_cols.items())
+    lag_status = ",\n".join(
+        f"LAG({name}_ok) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lag_{name}_ok, "
+        f"LEAD({name}_ok,1) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lead1_{name}_ok, "
+        f"LEAD({name}_ok,2) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lead2_{name}_ok, "
+        f"LEAD({name}_ok,3) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lead3_{name}_ok"
+        for name in FAILURES
     )
-    df = df.merge(earliest[["pseudocode", "frozen_muslim_share"]], on="pseudocode", how="left")
-
-    for failure in FAILURES:
-        ok = f"{failure}_ok"
-        df[f"lag_{ok}"] = df.groupby("pseudocode")[ok].shift(1)
-        df.loc[~consecutive, f"lag_{ok}"] = np.nan
-        for h in (1, 2, 3):
-            df[f"{ok}_lead{h}"] = df.groupby("pseudocode")[ok].shift(-h)
-            lead_year = df.groupby("pseudocode")["year_index"].shift(-h)
-            df.loc[~lead_year.eq(df["year_index"] + h), f"{ok}_lead{h}"] = np.nan
-    return df
-
-
-def _events(df: pd.DataFrame, failure: str) -> pd.DataFrame:
-    ok = f"{failure}_ok"
-    ev = df.loc[
-        (df["is_state_local_government"] == 1)
-        & (df[f"lag_{ok}"] == 1)
-        & (df[ok] == 0)
-        & df["lag_muslim_share"].notna()
-    ].copy()
-    ev["failure_type"] = failure
-    ev["exposure"] = ev["lag_muslim_share"]
-    if failure == "girls_toilet":
-        ev["baseline_stock"] = pd.to_numeric(ev["lag_girls_toilets"], errors="coerce")
-    elif failure == "boys_toilet":
-        ev["baseline_stock"] = pd.to_numeric(ev["lag_boys_toilets"], errors="coerce")
-    elif failure == "major_repair":
-        ev["baseline_stock"] = pd.to_numeric(ev["lag_total_classrooms"], errors="coerce")
-    else:
-        ev["baseline_stock"] = 0.0
-
-    for h in (1, 2, 3):
-        leads = [pd.to_numeric(ev[f"{ok}_lead{j}"], errors="coerce") for j in range(1, h + 1)]
-        lead_frame = pd.concat(leads, axis=1)
-        any_repair = (lead_frame == 1).any(axis=1)
-        complete = lead_frame.notna().all(axis=1)
-        ev[f"repair_by_{h}"] = np.where(any_repair, 1.0, np.where(complete, 0.0, np.nan))
-    return ev
+    unions = []
+    for name in FAILURES:
+        stock = {
+            "girls_toilet": "lag_girls_toilets",
+            "boys_toilet": "lag_boys_toilets",
+            "major_repair": "lag_total_classrooms",
+            "water": "0",
+            "electricity": "0",
+        }[name]
+        unions.append(f"""
+            SELECT *, '{name}' AS failure_type, {stock} AS baseline_stock,
+                   CASE
+                     WHEN lead1_year_index=year_index+1 AND lead1_is_gov=1 AND lead1_{name}_ok=1 THEN 1.0
+                     WHEN lead1_year_index=year_index+1 AND lead1_is_gov=1 AND lead1_{name}_ok=0 THEN 0.0
+                   END AS repair_by_1,
+                   CASE
+                     WHEN lead1_year_index=year_index+1 AND lead1_is_gov=1 AND lead1_{name}_ok=1 THEN 1.0
+                     WHEN lead2_year_index=year_index+2 AND lead2_is_gov=1 AND lead2_{name}_ok=1 THEN 1.0
+                     WHEN lead1_year_index=year_index+1 AND lead2_year_index=year_index+2
+                          AND lead1_is_gov=1 AND lead2_is_gov=1
+                          AND lead1_{name}_ok=0 AND lead2_{name}_ok=0 THEN 0.0
+                   END AS repair_by_2,
+                   CASE
+                     WHEN lead1_year_index=year_index+1 AND lead1_is_gov=1 AND lead1_{name}_ok=1 THEN 1.0
+                     WHEN lead2_year_index=year_index+2 AND lead2_is_gov=1 AND lead2_{name}_ok=1 THEN 1.0
+                     WHEN lead3_year_index=year_index+3 AND lead3_is_gov=1 AND lead3_{name}_ok=1 THEN 1.0
+                     WHEN lead1_year_index=year_index+1 AND lead2_year_index=year_index+2 AND lead3_year_index=year_index+3
+                          AND lead1_is_gov=1 AND lead2_is_gov=1 AND lead3_is_gov=1
+                          AND lead1_{name}_ok=0 AND lead2_{name}_ok=0 AND lead3_{name}_ok=0 THEN 0.0
+                   END AS repair_by_3
+            FROM w
+            WHERE is_state_local_government=1 AND lag_is_gov=1
+              AND lag_year_index=year_index-1
+              AND lag_{name}_ok=1 AND {name}_ok=0
+              AND lag_muslim_share IS NOT NULL
+              AND state IS NOT NULL AND district IS NOT NULL
+        """)
+    union_sql = " UNION ALL ".join(unions)
+    return con.execute(f"""
+        WITH base AS (
+          SELECT *, {year_case} AS year_index,
+                 muslim_c1_12/NULLIF(enrol_c1_12,0) AS muslim_share,
+                 sc_c1_12/NULLIF(enrol_c1_12,0) AS sc_share,
+                 st_c1_12/NULLIF(enrol_c1_12,0) AS st_share,
+                 obc_c1_12/NULLIF(enrol_c1_12,0) AS obc_share,
+                 {base_status}
+          FROM read_parquet('{q}')
+          WHERE enrol_c1_12 IS NOT NULL
+        ), w0 AS (
+          SELECT *,
+                 LAG(year_index) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lag_year_index,
+                 LEAD(year_index,1) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lead1_year_index,
+                 LEAD(year_index,2) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lead2_year_index,
+                 LEAD(year_index,3) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lead3_year_index,
+                 LAG(is_state_local_government) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lag_is_gov,
+                 LEAD(is_state_local_government,1) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lead1_is_gov,
+                 LEAD(is_state_local_government,2) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lead2_is_gov,
+                 LEAD(is_state_local_government,3) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lead3_is_gov,
+                 LAG(muslim_share) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lag_muslim_share,
+                 LAG(sc_share) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lag_sc_share,
+                 LAG(st_share) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lag_st_share,
+                 LAG(obc_share) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lag_obc_share,
+                 LAG(enrol_c1_12) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lag_enrol_c1_12,
+                 LAG(rural_urban) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lag_rural_urban,
+                 LAG(management) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lag_management,
+                 LAG(girls_toilets) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lag_girls_toilets,
+                 LAG(boys_toilets) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lag_boys_toilets,
+                 LAG(total_classrooms) OVER (PARTITION BY pseudocode ORDER BY year_index) AS lag_total_classrooms,
+                 ARG_MIN(muslim_share, year_index) OVER (PARTITION BY pseudocode) AS frozen_muslim_share,
+                 {lag_status}
+          FROM base
+        ), w AS (SELECT * FROM w0)
+        {union_sql}
+    """).df()
 
 
 def _fit(ev: pd.DataFrame, outcome: str, exposure: str, cluster: str = "state") -> dict | None:
@@ -103,20 +118,20 @@ def _fit(ev: pd.DataFrame, outcome: str, exposure: str, cluster: str = "state") 
     logn = np.log1p(pd.to_numeric(d["lag_enrol_c1_12"], errors="coerce").to_numpy(float))
     rural = pd.to_numeric(d["lag_rural_urban"], errors="coerce").to_numpy(float)
     stock = np.log1p(pd.to_numeric(d["baseline_stock"], errors="coerce").fillna(0).to_numpy(float))
-    mgmt = pd.to_numeric(d["management"], errors="coerce")
+    mgmt = pd.to_numeric(d["lag_management"], errors="coerce")
     cols = [m, sc, st, obc, logn, rural, stock]
     names = ["muslim_share", "lag_sc_share", "lag_st_share", "lag_obc_share", "log_enrolment", "rural_urban", "log_baseline_stock"]
-    finite_mgmt = mgmt.dropna()
-    if len(finite_mgmt):
-        base = finite_mgmt.min()
-        for code in sorted(x for x in finite_mgmt.unique() if x != base):
+    finite = mgmt.dropna()
+    if len(finite):
+        base = finite.min()
+        for code in sorted(v for v in finite.unique() if v != base):
             cols.append((mgmt.to_numpy(float) == code).astype(float)); names.append(f"management_{int(code)}")
     X = np.column_stack(cols)
-    dy = (d["district"].astype(str) + "|" + d["academic_year"].astype(str)).to_numpy(object)
+    district_onset = (d["district"].astype(str) + "|" + d["academic_year"].astype(str)).to_numpy(object)
     try:
         fit = fit_wls_clustered(
             pd.to_numeric(d[outcome], errors="coerce").to_numpy(float), X, np.ones(len(d)),
-            d[cluster].to_numpy(object), absorb_groups=[dy], names=names,
+            d[cluster].to_numpy(object), absorb_groups=[district_onset], names=names,
         )
     except RuntimeError:
         return None
@@ -135,40 +150,36 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="muslim_equity_repair_") as td:
         root = Path(td)
         panel, reports = build_panel(con, repo, token, root/"work", root/"panel", teacher=False, facility=True, profile2=False)
-        df = _prepare(panel, con)
-        event_frames = [_events(df, f) for f in FAILURES]
-        all_events = pd.concat(event_frames, ignore_index=True)
-
-        event_counts = all_events.groupby(["academic_year", "failure_type"]).agg(events=("pseudocode","size"), schools=("pseudocode","nunique"), states=("state","nunique"), districts=("district","nunique"), mean_pre_failure_muslim_share=("exposure","mean")).reset_index()
-        event_counts.to_csv(OUT/"event_counts.csv", index=False)
+        all_events = _prepare_events(panel, con)
+        all_events.groupby(["academic_year", "failure_type"]).agg(
+            events=("pseudocode","size"), schools=("pseudocode","nunique"), states=("state","nunique"), districts=("district","nunique"),
+            mean_pre_failure_muslim_share=("lag_muslim_share","mean")
+        ).reset_index().to_csv(OUT/"event_counts.csv", index=False)
 
         rows = []
         for failure, ev in all_events.groupby("failure_type"):
             for h in (1, 2, 3):
                 outcome = f"repair_by_{h}"
-                ans = _fit(ev, outcome, "exposure", "state")
-                if ans:
-                    rows.append({"failure_type": failure, "horizon_years": h, "exposure": "lag_muslim_share", "universe": "main_1_2_3_6_89_90", **ans})
-                ans = _fit(ev, outcome, "exposure", "district")
-                if ans:
-                    rows.append({"failure_type": failure, "horizon_years": h, "exposure": "lag_muslim_share", "universe": "main_1_2_3_6_89_90", **ans})
-                frozen = ev.copy(); frozen["frozen_exposure"] = frozen["frozen_muslim_share"]
-                ans = _fit(frozen, outcome, "frozen_exposure", "state")
-                if ans:
-                    rows.append({"failure_type": failure, "horizon_years": h, "exposure": "frozen_muslim_share", "universe": "main_1_2_3_6_89_90", **ans})
+                ans = _fit(ev, outcome, "lag_muslim_share", "state")
+                if ans: rows.append({"failure_type":failure,"horizon_years":h,"exposure":"lag_muslim_share","universe":"main_1_2_3_6_89_90","spec":"primary",**ans})
+                ans = _fit(ev, outcome, "lag_muslim_share", "district")
+                if ans: rows.append({"failure_type":failure,"horizon_years":h,"exposure":"lag_muslim_share","universe":"main_1_2_3_6_89_90","spec":"district_cluster",**ans})
+                ans = _fit(ev, outcome, "frozen_muslim_share", "state")
+                if ans: rows.append({"failure_type":failure,"horizon_years":h,"exposure":"frozen_muslim_share","universe":"main_1_2_3_6_89_90","spec":"frozen_exposure",**ans})
                 core = ev.loc[ev["is_core_government"] == 1].copy()
-                ans = _fit(core, outcome, "exposure", "state") if len(core) else None
-                if ans:
-                    rows.append({"failure_type": failure, "horizon_years": h, "exposure": "lag_muslim_share", "universe": "core_1_2_3", **ans})
-        qs = bh_qvalues([r["p_muslim_share"] for r in rows])
-        for r, q in zip(rows, qs): r["q_muslim_share"] = q
+                ans = _fit(core, outcome, "lag_muslim_share", "state") if len(core) else None
+                if ans: rows.append({"failure_type":failure,"horizon_years":h,"exposure":"lag_muslim_share","universe":"core_1_2_3","spec":"government_universe_robustness",**ans})
+
+        primary_ix = [i for i, r in enumerate(rows) if r["spec"] == "primary"]
+        qvals = bh_qvalues([rows[i]["p_muslim_share"] for i in primary_ix])
+        for i, qv in zip(primary_ix, qvals): rows[i]["primary_family_q"] = qv
         write_rows(OUT/"repair_models.csv", rows)
 
-        all_events["muslim_bin"] = muslim_bin(all_events["exposure"])
+        all_events["muslim_bin"] = muslim_bin(all_events["lag_muslim_share"])
         bin_rows = []
         for (failure, label), d in all_events.groupby(["failure_type", "muslim_bin"], observed=True):
-            row = {"failure_type": failure, "muslim_bin": str(label), "events": len(d), "states": d.state.nunique(), "districts": d.district.nunique()}
-            for h in (1, 2, 3):
+            row = {"failure_type":failure,"muslim_bin":str(label),"events":len(d),"states":d.state.nunique(),"districts":d.district.nunique()}
+            for h in (1,2,3):
                 y = pd.to_numeric(d[f"repair_by_{h}"], errors="coerce")
                 row[f"repair_rate_{h}y"] = float(y.mean()) if y.notna().any() else None
                 row[f"observed_{h}y"] = int(y.notna().sum())
@@ -176,10 +187,11 @@ def main() -> None:
         write_rows(OUT/"five_pp_repair_rates.csv", bin_rows)
         write_json(OUT/"source_validation.json", reports)
 
-        primary = [r for r in rows if r["cluster"] == "state" and r["exposure"] == "lag_muslim_share" and r["universe"] == "main_1_2_3_6_89_90"]
-        lines = ["# Failure-to-repair national experiment", "", f"Incident documented failures: {len(all_events):,}.", "", "Coefficient is the change in repair probability associated with moving Muslim share from 0 to 100%, conditional on district-by-onset-year and prespecified covariates."]
+        primary = [r for r in rows if r["spec"] == "primary"]
+        lines = ["# Failure-to-repair national experiment", "", f"Incident documented failures: {len(all_events):,}.", "", "The coefficient is the conditional change in restoration probability associated with moving pre-failure Muslim share from 0 to 100 percent. Follow-up is censored if the school leaves the State/local-government universe."]
         for r in primary:
-            lines.append(f"- {r['failure_type']} within {r['horizon_years']}y: {r['coef_muslim_share']:+.4f} (95% CI {r['ci_low']:+.4f} to {r['ci_high']:+.4f}), p={r['p_muslim_share']:.4g}, q={r['q_muslim_share']:.4g}, n={r['n']:,}")
+            qv = r.get("primary_family_q", float("nan"))
+            lines.append(f"- {r['failure_type']} within {r['horizon_years']}y: {r['coef_muslim_share']:+.4f} (95% CI {r['ci_low']:+.4f} to {r['ci_high']:+.4f}), p={r['p_muslim_share']:.4g}, q={qv:.4g}, n={r['n']:,}")
         (OUT/"RESULTS.md").write_text("\n".join(lines), encoding="utf-8")
         print("\n".join(lines), flush=True)
     con.close()
