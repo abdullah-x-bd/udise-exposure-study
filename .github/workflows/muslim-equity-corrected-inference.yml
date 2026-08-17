@@ -1,0 +1,115 @@
+name: Muslim equity corrected inference
+
+on:
+  push:
+    branches:
+      - research/muslim-government-school-equity
+    paths:
+      - .github/workflows/muslim-equity-corrected-inference.yml
+  workflow_dispatch:
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - run: |
+          python -m py_compile \
+            studies/muslim_government_school_equity/cluster_harmonization.py \
+            studies/muslim_government_school_equity/run_corrected_inference.py \
+            studies/muslim_government_school_equity/run_need_inspection_memorysafe.py
+      - name: Verify State lineage mapping
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python - <<'PY'
+          from cluster_harmonization import canonical_state
+          assert canonical_state('Kerla') == 'KERALA'
+          assert canonical_state('ORISSA') == 'ODISHA'
+          assert canonical_state('Tamilnadu') == 'TAMIL NADU'
+          assert canonical_state('Ladakh') == canonical_state('Jammu & Kashmir')
+          assert canonical_state('Daman & Diu') == canonical_state('Dadra & Nagar Haveli')
+          print('state-lineage mapping checks passed')
+          PY
+      - run: |
+          test -n "$HF_TOKEN"
+          test -n "$HF_DATASET_REPO"
+
+  rte:
+    name: Corrected RTE staffing inference
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - run: PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_corrected_inference.py rte
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: muslim-equity-rte-corrected
+          path: studies/muslim_government_school_equity/outputs/rte_staffing/*
+          retention-days: 30
+          if-no-files-found: error
+
+  repair:
+    name: Corrected failure-to-repair inference
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - run: PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_corrected_inference.py repair
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: muslim-equity-repair-corrected
+          path: studies/muslim_government_school_equity/outputs/failure_to_repair/*
+          retention-days: 30
+          if-no-files-found: error
+
+  inspection:
+    name: Memory-safe corrected need-to-inspection
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - run: PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_need_inspection_memorysafe.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: muslim-equity-inspection-corrected
+          path: studies/muslim_government_school_equity/outputs/need_inspection_corrected/*
+          retention-days: 30
+          if-no-files-found: error
