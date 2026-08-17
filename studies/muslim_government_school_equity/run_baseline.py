@@ -32,7 +32,9 @@ def main() -> None:
                    SUM(enrol_c1_12) FILTER (WHERE is_state_local_government=1 AND enrol_c1_12>0) AS students,
                    SUM(muslim_c1_12) FILTER (WHERE is_state_local_government=1 AND enrol_c1_12>0) AS muslim_students,
                    AVG(muslim_c1_12/enrol_c1_12) FILTER (WHERE is_state_local_government=1 AND enrol_c1_12>0) AS mean_school_muslim_share,
-                   SUM(muslim_c1_12)/NULLIF(SUM(enrol_c1_12),0) FILTER (WHERE is_state_local_government=1 AND enrol_c1_12>0) AS student_weighted_muslim_share
+                   (SUM(muslim_c1_12) FILTER (WHERE is_state_local_government=1 AND enrol_c1_12>0)) /
+                   NULLIF((SUM(enrol_c1_12) FILTER (WHERE is_state_local_government=1 AND enrol_c1_12>0)),0)
+                   AS student_weighted_muslim_share
             FROM read_parquet({p})
             GROUP BY 1 ORDER BY 1
         """).df()
