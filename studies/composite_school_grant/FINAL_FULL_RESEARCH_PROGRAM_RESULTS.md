@@ -1,26 +1,26 @@
 # Final Full Research Program Results
 
-## Composite School Grant formula transmission, administrative timing, state implementation, enrolment incentives, social composition, and observable facility outcomes
+## Composite School Grant formula transmission, administrative timing, State implementation, enrolment incentives, social composition and observable facility outcomes
 
-This document supersedes earlier exploratory and red-team headline summaries where they conflict with the results below. It records the final research design actually executed after correcting the Composite School Grant administrative clock and completing the previously blocked robustness and social-equity experiments.
+This document records the final research design and results for the Composite School Grant study. Earlier exploratory summaries remain part of the project history but are superseded where they conflict with the corrected administrative clock or the completed robustness analyses.
 
-## 1. Final research question
+## 1. Research question
 
-The strongest study is not an impact paper asking whether an extra Rs 25,000 mechanically improves a binary UDISE facility variable. It is a public-finance implementation and administrative-measurement study.
+This study is a public-finance implementation and administrative-measurement analysis of India's enrolment-based Composite School Grant.
 
 The central questions are:
 
-1. Does India's enrolment-based Composite School Grant formula leave a measurable school-level financial fingerprint in UDISE?
-2. What is the correct enrolment-to-allocation-to-UDISE reporting clock?
-3. How faithfully does the recorded amount reproduce the statutory band?
-4. How much does formula transmission differ across States and UTs?
-5. Does the formula induce strategic enrolment manipulation around the funding thresholds?
-6. Does formula transmission weaken as schools serve larger shares of Muslim, SC, ST, OBC, General, or other religious-minority populations?
-7. Is a higher formula-induced reported grant associated with subsequent changes in the coarse school-facility outcomes observable in UDISE?
+1. Does the CSG formula leave a measurable school-level financial fingerprint in UDISE?
+2. What enrolment-to-allocation-to-UDISE reporting clock aligns the policy rule with the financial records?
+3. How closely does the recorded CSG amount reproduce the formula-implied annual amount?
+4. How much do timing, strength and durability of the recorded response differ across States and UTs?
+5. Do enrolment densities and longitudinal crossings show evidence of CSG-specific strategic manipulation?
+6. Does the formula response vary systematically with school social composition?
+7. What do the available expenditure and facility outcomes add, and what do they not identify?
 
-## 2. Institutional clock and main design
+## 2. Institutional clock and primary design
 
-The statutory 250/251 threshold changes the Composite School Grant band from Rs 50,000 for enrolment 101-250 to Rs 75,000 for enrolment 251-1000. The econometric cutoff is therefore 250.5.
+The 250/251 threshold changes the CSG formula-implied annual amount from Rs 50,000 for enrolment 101-250 to Rs 75,000 for enrolment 251-1000. The econometric cutoff is therefore 250.5.
 
 The documentary audit found that the Delhi CSG allocation orders examined use a two-academic-year-old UDISE enrolment vintage:
 
@@ -28,9 +28,11 @@ The documentary audit found that the Delhi CSG allocation orders examined use a 
 - CSG 2022-23 used UDISE+ 2020-21.
 - CSG 2024-25 used UDISE+ 2022-23.
 
-UDISE financial fields record grants received and expenditure during the previous financial year. Consequently, an enrolment assignment vintage t maps to the CSG grant financial year t+2 and then appears in the UDISE financial field at t+3.
+UDISE financial fields report grants received and expenditure during the previous financial year. The common national alignment supported by the documentary and empirical evidence is therefore:
 
-This produces four clean, usable assignment cohorts in the available panel:
+**enrolment vintage T -> grant financial year T+2 -> UDISE financial report at T+3.**
+
+This produces four usable assignment cohorts:
 
 | Assignment enrolment | Grant financial year | UDISE financial-report field |
 |---|---|---|
@@ -39,41 +41,39 @@ This produces four clean, usable assignment cohorts in the available panel:
 | 2021-22 | 2023-24 | 2024-25 |
 | 2022-23 | 2024-25 | 2025-26 |
 
-The original 6-8 percentage-point figures were based on a +2 UDISE round alignment. They are superseded. The sharp administrative response occurs at +3.
+Earlier 6-8 percentage-point estimates came from a +2 reporting-round alignment and are superseded by the corrected timing specification.
 
-## 3. Main financial first stage
+## 3. Primary financial threshold response
 
-The primary outcome is the probability that the correctly aligned UDISE field reports Composite School Grant receipt of at least Rs 75,000 near the 250/251 cutoff.
+The primary outcome is the probability that the correctly aligned UDISE field reports CSG receipt of at least Rs 75,000 near the 250/251 cutoff.
 
 State-clustered `rdrobust` estimates are:
 
-| Assignment cohort | UDISE report field | First-stage jump | SE | p-value |
+| Assignment cohort | UDISE report field | Threshold response | SE | p-value |
 |---|---|---:|---:|---:|
 | 2019-20 | 2022-23 | +24.70 pp | 12.34 pp | .0453 |
 | 2020-21 | 2023-24 | +31.81 pp | 10.23 pp | .00188 |
 | 2021-22 | 2024-25 | +33.21 pp | 8.85 pp | .000176 |
 | 2022-23 | 2025-26 | +32.52 pp | 8.16 pp | .000067 |
 
-A common +/-30 local-linear state-clustered replication produces +25.21, +32.88, +33.46, and +33.24 percentage points respectively.
+A common +/-30 local-linear state-clustered replication produces +25.21, +32.88, +33.46 and +33.24 percentage points respectively.
 
-The correctly aligned 99-percent-winsorized reported-receipt discontinuities are approximately:
+The correctly aligned 99-percent-winsorised reported-receipt discontinuities are approximately:
 
 - 2019-20: +Rs 9,469
 - 2020-21: +Rs 13,136
 - 2021-22: +Rs 14,421
 - 2022-23: +Rs 13,106
 
-The corresponding expenditure discontinuities are approximately Rs 8,981, Rs 11,593, Rs 13,275, and Rs 12,639.
+The corresponding expenditure discontinuities are approximately Rs 8,981, Rs 11,593, Rs 13,275 and Rs 12,639.
 
-Interpretation: the statutory formula strongly shifts the distribution of reported school finance, but the average recorded amount change is substantially smaller than the nominal Rs 25,000 difference between the two bands. This is a fuzzy administrative first stage, not deterministic compliance.
+The formula therefore shifts the distribution of reported school finance sharply, while the average recorded rupee change remains below the nominal Rs 25,000 difference between the two bands. The result is a fuzzy administrative threshold response rather than deterministic one-to-one recording of the formula amount.
 
 ## 4. Government-school universe robustness
 
-The original confirmatory sample used UDISE management codes 1, 2 and 3: Department of Education, Tribal Welfare Department, and Local Body schools.
+The original confirmatory sample used UDISE management codes 1, 2 and 3: Department of Education, Tribal Welfare Department and Local Body schools.
 
-A broader verified State/UT-government sensitivity uses codes 1, 2, 3, 6, 89, and 90. A further all-UDISE-government sensitivity adds the principal central-government management codes 92, 93, 94, 95, 96, and 101.
-
-The direct head-to-head first stages are:
+A broader verified State/UT-government sensitivity uses codes 1, 2, 3, 6, 89 and 90. A further all-UDISE-government sensitivity adds the principal central-government management codes 92, 93, 94, 95, 96 and 101.
 
 | Cohort | Core 1/2/3 | Broad State/UT govt | All-government sensitivity |
 |---|---:|---:|---:|
@@ -82,11 +82,11 @@ The direct head-to-head first stages are:
 | 2021-22 | +33.46 pp | +33.72 pp | +33.68 pp |
 | 2022-23 | +33.24 pp | +33.42 pp | +33.38 pp |
 
-Thus the headline financial discontinuity is not an artefact of the conservative original management filter. In the processed 2024-25 universe, the original 1/2/3 categories already contained 1,007,956 schools versus 1,011,133 in the broader State/UT-government definition.
+The main threshold result is therefore not an artefact of the conservative original management filter.
 
-## 5. Exact grant fidelity
+## 5. Recorded grant fidelity
 
-The formula does not simply create an exact Rs 75,000 point mass.
+The formula does not create an exact Rs 75,000 point mass in UDISE.
 
 At +/-30 around 250/251:
 
@@ -97,15 +97,15 @@ At +/-30 around 250/251:
 | 2021-22 | -7.11 pp | +5.29 pp | +33.46 pp | +32.83 pp |
 | 2022-23 | -6.67 pp | +6.53 pp | +33.24 pp | +31.96 pp |
 
-The consistent pattern is important. Crossing 250 moves schools away from the lower-band exact amount and toward the upper financial region, but exact statutory recording rises by only roughly 2-7 percentage points.
+Crossing 250 moves schools away from the lower-band exact amount and toward the upper financial region, but exact Rs 75,000 recording rises by only roughly 2-7 percentage points.
 
-This should be described as imperfect recorded fiscal fidelity. It should not be interpreted as proof that schools below Rs 75,000 were denied their entitlement. Timing, balances, instalments, accounting conventions, partial releases, or UDISE reporting can all contribute.
+This is treated as imperfect recorded fiscal fidelity. A difference between the formula-implied amount and the UDISE CSG receipt field is a recorded administrative realization gap. UDISE alone cannot determine which part reflects approval, authorization, utilization, balances, timing, carry-forward or reporting, so the gap is not automatically classified as an unpaid cash obligation.
 
 ## 6. Multi-threshold formula fingerprint
 
-The correctly aligned financial data also move at the other statutory CSG boundaries. These are formula-fingerprint tests rather than four separate causal outcome designs because other programmes overlap some thresholds and the small-school schedule changed historically.
+The correctly aligned financial data also move at the other CSG boundaries.
 
-For `P(receipt >= statutory target)`:
+For `P(receipt >= formula-implied target)`:
 
 | Threshold | Target | 2019-20 | 2020-21 | 2021-22 | 2022-23 |
 |---|---:|---:|---:|---:|---:|
@@ -114,21 +114,21 @@ For `P(receipt >= statutory target)`:
 | 250/251 | Rs 75k | +25.21 pp | +32.88 pp | +33.46 pp | +33.24 pp |
 | 1000/1001 | Rs 100k | +15.07 pp | +11.36 pp | +19.44 pp | +15.02 pp |
 
-The repetition across formula boundaries makes a coincidental 250-specific discontinuity substantially less plausible. The 250/251 threshold remains the primary design because 100/101 overlaps PM POSHAN rules, 30/31 has historical schedule complications, and 1000/1001 is much sparser.
+The repetition across formula boundaries makes a coincidental 250-specific discontinuity substantially less plausible. The 250/251 threshold remains the primary identification threshold because 100/101 overlaps PM POSHAN rules, 30/31 has historical schedule complications and 1000/1001 is much sparser.
 
 ## 7. PM POSHAN isolation
 
-The CSG 250/251 threshold overlaps a PM POSHAN kitchen-device threshold based on Classes I-VIII enrolment. Restricting schools near total Classes I-XII enrolment 250 so that Classes I-VIII enrolment remains safely below the PM POSHAN boundary preserves the financial first stage.
+The 250/251 CSG threshold overlaps a PM POSHAN kitchen-device threshold based on Classes I-VIII enrolment. Restricting schools near total Classes I-XII enrolment 250 so that Classes I-VIII enrolment remains safely below the PM POSHAN boundary preserves a positive financial response.
 
-For Classes I-VIII enrolment <=220, the four local first stages are approximately +17.48, +11.94, +20.81, and +26.22 percentage points. Results are similar at <=200.
+For Classes I-VIII enrolment <=220, the four local responses are approximately +17.48, +11.94, +20.81 and +26.22 percentage points. Results are similar at <=200.
 
-This does not prove that no state-specific programme shares the cutoff, but it materially weakens the principal national-programme confound.
+This does not eliminate every possible State-specific coincident rule, but it materially weakens the principal national-programme confound.
 
 ## 8. State implementation heterogeneity
 
-The same national formula produces dramatically different reported financial discontinuities across States and UTs. Four-cohort mean state first stages are:
+The same national formula produces dramatically different recorded financial responses across States and UTs. Four-cohort mean State responses at 250/251 include:
 
-| State/UT | Mean first stage |
+| State/UT | Mean threshold response |
 |---|---:|
 | Chhattisgarh | +67.1 pp |
 | Uttar Pradesh | +66.7 pp |
@@ -140,7 +140,6 @@ The same national formula produces dramatically different reported financial dis
 | Rajasthan | +26.9 pp |
 | Assam | +26.1 pp |
 | Tamil Nadu | +25.7 pp |
-| Tripura | +19.4 pp |
 | Bihar | +18.9 pp |
 | Madhya Pradesh | +17.0 pp |
 | Andhra Pradesh | +14.8 pp |
@@ -150,17 +149,14 @@ The same national formula produces dramatically different reported financial dis
 | Odisha | +7.9 pp |
 | Punjab | +7.7 pp |
 | Maharashtra | +7.6 pp |
-| Uttarakhand | +6.1 pp |
 | Telangana | +2.0 pp |
 | Himachal Pradesh | -0.3 pp |
 
-These figures should be interpreted as variation in the strength of the UDISE-recorded formula fingerprint, not automatically as variation in actual cash delivery. Differences in release practices, accounting, reporting, grant administration, and measurement can all contribute.
+These differences establish large heterogeneity in the State-level administrative realization of the same national formula in the CSG-specific UDISE receipt field. They do not, from UDISE alone, identify the precise administrative stage responsible for each formula-to-record difference.
 
-State rankings are meaningfully persistent over time, particularly between the two latest cohorts. This is consistent with persistent administrative systems rather than pure sampling noise.
+State patterns are persistent over time and replicate strongly across separate CSG thresholds, which is consistent with systematic State administrative environments rather than one-cutoff noise.
 
-## 9. State-specific timing
-
-The +3 clock is not merely a national average.
+## 9. State-specific timing and record-convergence latency
 
 Across 92 state-cohort cells, the lag with the largest positive 250/251 financial discontinuity is:
 
@@ -172,15 +168,21 @@ Across 92 state-cohort cells, the lag with the largest positive 250/251 financia
 
 Thus +3 is the modal best lag in 70.7 percent of state-cohort cells.
 
-Assam, Chhattisgarh, Delhi, Gujarat, Haryana, Jammu & Kashmir, Jharkhand, Madhya Pradesh, Rajasthan, and Uttar Pradesh select +3 in all four cohorts. Bihar, Karnataka, Maharashtra, and West Bengal select +3 in three of four. Telangana selects +3 in none.
+The longitudinal first-recorded-convergence analysis adds a second timing concept. Among continuously eligible schools, national N50 is T+3 at all three clean thresholds. N80 is T+4 at 100/101 and 250/251 and T+5 at 1000/1001. These values measure the first observed cycle by which 50% or 80% have ever recorded at least the corresponding formula amount in UDISE. They are not cash-transfer times.
 
-The state-level average financial discontinuity is sharply concentrated at +3 and much smaller at the surrounding lags.
+State N50/N80 values vary substantially. At 250/251, some States reach N80 by T+2 or T+3, while others do not reach N80 within the observed T+6 horizon. The ordering also replicates across independent CSG thresholds.
 
-## 10. Bunching and strategic enrolment manipulation
+A separate current-recording analysis shows why first convergence and durable fidelity are different objects. National current recording at or above the formula amount does not reach 80% through T+6 at any clean threshold even though first-recorded-convergence N80 is reached earlier.
 
-Heaping-adjusted above-versus-below asymmetry around 250/251 is modest and declines in later years:
+## 10. Enrolment density, heaping and manipulation tests
 
-| UDISE year | Asymmetry |
+Administrative enrolment data exhibit visible heaping and non-smoothness at several policy-relevant and round-number values.
+
+At 100/101, the heaping-adjusted asymmetry is much larger than at 250/251. The 100 region cannot be interpreted as a clean CSG behavioural response because it is both a salient round number and implicated by other school-program rules, including PM POSHAN.
+
+Around 250/251, the irregularity is smaller but repeated:
+
+| UDISE year | Heaping-adjusted asymmetry |
 |---|---:|
 | 2018-19 | 0.127 |
 | 2019-20 | 0.143 |
@@ -191,176 +193,79 @@ Heaping-adjusted above-versus-below asymmetry around 250/251 is modest and decli
 | 2024-25 | 0.063 |
 | 2025-26 | 0.064 |
 
-Dedicated placebo-cutoff comparisons show that the 250 pattern is not exceptional enough to establish strategic manipulation.
+Placebo-cutoff comparisons and longitudinal landing/reversion tests do not distinguish 250/251 strongly enough to establish a CSG-specific manipulation mechanism. Across six possible three-year windows, true-minus-placebo averages are only about +0.32 pp for approach/landing, -0.15 pp for subsequent reversion and +0.45 pp for projected threshold landing.
 
-The longitudinal crossing/reversion analysis provides a stronger falsification. Across six possible three-year windows, comparing the true 250 threshold with placebo thresholds at 200 and 300, the true-minus-placebo averages are only about:
+The supported conclusion is therefore that heaping and local irregularity are present, but the evidence does not establish systematic CSG-induced enrolment manipulation, gaming or fraud.
 
-- +0.32 percentage points for approach/landing from the last 20 below to the first 5 above;
-- -0.15 percentage points for subsequent reversion;
-- +0.45 percentage points for projected threshold landing.
+## 11. Enrolment churn and formula stability
 
-These are tiny.
+The longitudinal panel also shows that annual formula assignment reacts to enrolment movements that are often temporary.
 
-State formula strength also does not predict stronger bunching. State first-stage versus bunching correlations across the four cohorts are about .16, .31, .17, and .07; permutation p-values are all above .23.
+For clean downward crossings:
 
-Final conclusion: there is modest repeated bunching/heaping around the cutoff, but the evidence does not support a claim of systematic strategic enrolment manipulation, gaming, or fraud induced by CSG.
+- 100/101: 89.84% reverse within two years;
+- 250/251: 91.13% reverse within two years;
+- 1000/1001: 91.40% reverse within two years.
 
-## 11. Social-composition design
+The weighted clean-threshold two-year reversal rate is about **90.2%** across 242,769 downward crossings with the required follow-up.
 
-The social-equity extension was rebuilt around the correctly timed formula discontinuity itself, not contemporaneous grant-per-student regressions.
+A full-panel counterfactual using the average of the latest two enrolment snapshots reduces simulated band changes by about 26%, A-B-A ping-pong reversals by about 65% and nominal volatility by about 26%, with illustrative incremental nominal exposure of about 0.53%. The exact rupee figure is treated cautiously because the <=30 historical schedule changed.
 
-The preferred specification uses:
+This provides the main policy-design motivation for testing a more stable band-assignment rule rather than allowing every annual threshold crossing to change formula support immediately.
 
-- the four correctly aligned assignment cohorts;
-- the broad State/UT-government universe;
-- +/-30 around 250.5;
-- previous-year school social composition as a predetermined heterogeneity variable;
-- the outcome `P(UDISE reported CSG receipt >= Rs 75,000)`;
-- management, rural/urban, and school-category controls;
-- State-by-year and district-by-year fixed-effect versions;
-- state-clustered inference;
-- core 1/2/3 and broader/all-government sensitivity samples;
-- continuous share interactions for inference;
-- 5-percentage-point bins for presentation;
-- multiple-testing correction;
-- joint compositional models;
-- false cutoffs at 200.5 and 300.5;
-- state-specific joint models and support diagnostics;
-- school first-difference diagnostics.
+## 12. Recorded persistence under unchanged formula amount
 
-Social category and religion are separate marginal classifications. General, SC, ST, and OBC are mutually exclusive within the social-category margin. Muslim, Christian, Sikh, Buddhist, Parsi, and Jain are separately recorded religion/minority categories. A student can be both Muslim and OBC, for example. Therefore no `total - minority religions - SC - ST - OBC` variable is constructed. Such a residual would double-subtract overlapping students and cannot identify Hindu-General or upper-caste-Hindu pupils.
+When a school's formula-implied amount remains unchanged but its UDISE CSG receipt record falls below that amount, the recorded gap is usually not eliminated over the next two observed cycles.
 
-The valid alternatives are:
+Among complete clean-threshold cases, two-cycle cumulative recorded convergence is approximately:
 
-- General share within the social-category classification; and
-- residual/non-listed-religion share within the religion classification.
+- 100/101: 13.33%
+- 250/251: 15.81%
+- 1000/1001: 11.51%
 
-## 12. Predetermined social-composition continuity
+Weighted across the clean thresholds, only **14.1%** of complete cases converge cumulatively within two additional observed cycles. This is an administrative-record persistence statistic, not a measure of unpaid money.
 
-Before interpreting heterogeneity, previous-year group shares were tested for their own discontinuity at the current 250/251 cutoff.
+Among complete clean-threshold cases followed for two cycles, 59.4% finish with a cumulative recorded gap larger than the initial gap.
 
-Across 44 group-by-cohort state-clustered continuity tests, only one raw p-value is below .05. None survives Benjamini-Hochberg correction; the smallest adjusted q-value is approximately .159. Muslim share shows no discontinuity in any cohort.
+## 13. Recorded receipt and expenditure
 
-This supports using previous-year composition as a predetermined heterogeneity measure around the funding threshold.
+UDISE CSG receipt and expenditure move very closely together. Across the clean thresholds, receipt/expenditure capped-ratio correlations are roughly 0.94-0.95.
 
-## 13. Primary social-composition results
+In matched State x formula-band x aligned-cycle comparisons, all 152 supported clean-threshold cells comparing a downward receipt-record transition with stable recording show lower expenditure ratios, while all 134 supported clean-threshold recovery cells show higher expenditure ratios. The broader all-band counts are 315/315 and 274/274 respectively.
 
-The pooled preferred district-by-year model contains 171,464 local school-year observations.
+This is strong internal administrative/accounting co-movement. It is not independent validation that lower recorded receipt caused lower real expenditure because receipt and expenditure can be generated by the same underlying accounting and drawing process.
 
-Estimated change in the 250/251 financial first stage per +10 percentage points of group share:
+## 14. Social-composition design and results
 
-| Composition share | Change in first stage | 95% CI | p | BH q across 11 univariate group tests |
-|---|---:|---:|---:|---:|
-| Muslim | -0.18 pp | -1.19 to +0.84 | .733 | .807 |
-| SC | +1.37 pp | -1.10 to +3.85 | .276 | .379 |
-| ST | -1.20 pp | -3.55 to +1.15 | .318 | .389 |
-| OBC | +0.94 pp | -0.33 to +2.21 | .149 | .273 |
-| General | -1.16 pp | -2.56 to +0.23 | .101 | .267 |
-| Residual/non-listed religion | +0.57 pp | -0.33 to +1.47 | .212 | .333 |
-| Christian | -3.21 pp | -6.30 to -0.11 | .042 | .154 |
-| Sikh | -2.64 pp | -4.69 to -0.59 | .011 | .126 |
-| Buddhist | -7.92 pp | -15.28 to -0.56 | .035 | .154 |
-| Jain | -23.25 pp | -52.68 to +6.17 | .121 | .267 |
-| Parsi | -6.38 pp | -59.26 to +46.50 | .813 | .813 |
+The social-equity extension uses the correctly timed formula response rather than contemporaneous grant-per-student regressions.
 
-No group survives family-wide FDR correction.
+The preferred specification uses the four aligned cohorts, broad State/UT-government universe, +/-30 around 250.5, previous-year social composition, district-by-year fixed effects, management/rural/school-category controls, state-clustered inference, multiple-testing correction, joint compositional models and false cutoffs.
 
-The Muslim estimate is essentially zero and is stable across the core, broad-State, and all-government samples. Cohort-specific Muslim interactions are also null and do not show a replicating negative pattern.
+Religion and social category are separate UDISE classifications. General, SC, ST and OBC are mutually exclusive within the social-category margin, while Muslim, Christian, Sikh, Buddhist, Parsi and Jain are religion/minority categories. A pupil can belong to one category in each margin, so subtracting religion and caste shares together cannot identify a Hindu-General or upper-caste-Hindu population.
 
-## 14. The requested 0-5 percent through 95-100 percent curves
+Estimated change in the 250/251 response per +10 percentage points of group share in the preferred pooled model is:
 
-These are presentation estimates, not the primary inferential specification. Each cell is the estimated 250/251 jump in `P(reported receipt >= Rs 75,000)` for schools in that composition band, in percentage points.
+| Composition share | Change in threshold response | p |
+|---|---:|---:|
+| Muslim | -0.18 pp | .733 |
+| SC | +1.37 pp | .276 |
+| ST | -1.20 pp | .318 |
+| OBC | +0.94 pp | .149 |
+| General | -1.16 pp | .101 |
 
-| Share bin | Muslim | SC | ST | OBC | General |
-|---|---:|---:|---:|---:|---:|
-| 0-5% | 29.3 | 29.2 | 33.8 | 24.0 | 31.6 |
-| 5-10% | 33.6 | 27.0 | 22.8 | 25.1 | 34.1 |
-| 10-15% | 35.5 | 27.5 | 21.9 | 21.9 | 31.7 |
-| 15-20% | 37.2 | 28.8 | 23.3 | 29.4 | 31.4 |
-| 20-25% | 37.9 | 29.7 | 19.4 | 26.8 | 30.0 |
-| 25-30% | 29.5 | 29.7 | 22.5 | 28.9 | 30.5 |
-| 30-35% | 35.0 | 29.2 | 29.2 | 31.4 | 23.7 |
-| 35-40% | 44.0 | 34.3 | 21.0 | 30.6 | 30.7 |
-| 40-45% | 45.6 | 37.0 | 17.9 | 33.6 | 22.6 |
-| 45-50% | 38.4 | 38.0 | 32.0 | 36.3 | 26.7 |
-| 50-55% | 26.5 | 39.0 | 27.0 | 35.2 | 31.0 |
-| 55-60% | 37.7 | 40.9 | 21.7 | 32.7 | 18.3 |
-| 60-65% | 32.7 | 33.2 | 26.5 | 30.9 | 18.6 |
-| 65-70% | 33.7 | 33.2 | 21.8 | 33.4 | 13.3 |
-| 70-75% | 20.7 | 34.0 | 25.3 | 31.1 | 20.6 |
-| 75-80% | 33.4 | 37.1 | 24.9 | 35.5 | 10.8 |
-| 80-85% | 27.5 | 33.7 | 26.0 | 32.2 | 23.5 |
-| 85-90% | 30.4 | 41.8 | 14.1 | 32.7 | 29.7 |
-| 90-95% | 26.3 | 24.6 | 25.2 | 33.8 | 27.6 |
-| 95-100% | 25.4 | 29.0 | 28.1 | 32.4 | 23.7 |
+No univariate group survives FDR correction. In the joint social-category model, the Wald test is p=.391. The pooled Muslim coefficient in the joint religion model is -0.26 pp per +10 percentage points, p=.615, and the religion-family joint test at the true cutoff is p=.248.
 
-The central fact is not the noise in individual bins. It is that every displayed bin for all five major composition margins retains a positive formula first stage. There is no monotonic collapse in formula transmission as Muslim, SC, ST, OBC, or General concentration rises.
+Nominal negative coefficients for some smaller religious groups fail multiplicity control and cutoff specificity because the religion family is also strongly significant at fake cutoffs 200.5 and 300.5.
 
-For Muslim share specifically, the first stage is 29.3 pp at 0-5 percent and 25.4 pp at 95-100 percent, with substantial non-monotonic variation in between. The continuous preferred interaction is statistically zero.
+The formula-specific conclusion is therefore no robust evidence that the 250/251 CSG threshold response systematically weakens as Muslim, SC, ST, OBC, General or residual-religion concentration rises.
 
-Extreme bins for smaller religious groups have very sparse support and are not suitable for the same visual interpretation.
+Separate absolute-level analyses identify some descriptive State and group differences in recorded target fidelity. Those are documented in `social_equity/ABSOLUTE_EQUITY_AUDIT.md` and are not equivalent to differential application of the 250/251 formula threshold.
 
-## 15. Joint compositional models
-
-Because General, SC, ST, and OBC shares sum to one, estimating each separately can be misleading. The final social-category model enters SC, ST, and OBC jointly, with General as the omitted reference.
-
-In the four-cohort pooled, previous-year-composition, district-by-year, state-clustered model:
-
-| Relative composition change | First-stage interaction | 95% CI | p |
-|---|---:|---:|---:|
-| SC relative to General | +1.92 pp per +10 pp | -0.70 to +4.55 | .151 |
-| ST relative to General | +0.02 pp | -1.44 to +1.47 | .984 |
-| OBC relative to General | +1.33 pp | -0.24 to +2.90 | .096 |
-
-The joint social-category Wald test is chi-square(3)=3.00, p=.391.
-
-Thus the cohort-level suggestion of a modestly stronger SC/OBC formula response is not strong enough under the correct pooled state-clustered model. The correct conclusion is no robust social-category heterogeneity.
-
-The religion model enters Muslim, Christian, Sikh, Buddhist, Parsi, and Jain jointly, with the residual/non-listed-religion share as the omitted reference.
-
-The pooled Muslim coefficient is -0.26 pp per +10 percentage points, 95% CI -1.27 to +0.75, p=.615. The religion-family joint Wald test at the real 250/251 cutoff is p=.248.
-
-Christian, Sikh, and Buddhist individual coefficients are nominally negative, but none survives a correction across the pooled joint coefficients. More importantly, the entire religion family is strongly significant at fake cutoffs where no CSG band changes:
-
-- false cutoff 200.5: joint p approximately 1.0e-19;
-- false cutoff 300.5: joint p approximately .00032.
-
-Those smaller-religion associations therefore fail cutoff specificity. They should not be interpreted as CSG formula-transmission effects.
-
-## 16. State-wise social composition
-
-State-specific social models were estimated jointly within the compositional families, using previous-year composition, district fixed effects, and district-clustered inference where support was sufficient.
-
-There is no uniform Muslim pattern.
-
-Large states with substantial within-state Muslim-share variation such as Assam, Bihar, Uttar Pradesh, West Bengal, Karnataka, Gujarat, and Jharkhand do not display a consistent negative formula-transmission gradient across cohorts.
-
-Two exploratory state summaries initially appeared notable in opposite directions:
-
-- Chhattisgarh: positive Muslim interaction;
-- Tamil Nadu: negative Muslim interaction.
-
-The support audit shows why these should not be treated symmetrically. Around the cutoff in Chhattisgarh, mean previous-year Muslim share is only about 0.7-0.8 percent, its 90th percentile is only roughly 1.7-2.5 percent, and only about 1.4-1.7 percent of schools reach 10 percent Muslim. A coefficient expressed per +10 percentage points is therefore extrapolating far beyond common local support.
-
-Tamil Nadu has more support, but its negative coefficient is statistically significant in only two of four cohort models and remains an exploratory state-specific association after a large state-by-group search.
-
-Final conclusion: state-wise work reveals major administrative heterogeneity in overall CSG formula transmission, but not a coherent national or state-replicating Muslim disadvantage mechanism.
-
-## 17. Descriptive whole-universe funding gradients are not the causal result
-
-Older 2024-25 cross-sectional regressions had shown lower contemporaneous reported grant per student as Muslim, SC, and ST shares rose. Those regressions were useful motivation but did not reconstruct CSG entitlement or the correct administrative clock.
-
-The properly timed formula-discontinuity design does not reproduce a Muslim penalty.
-
-In the broad State-government sample, secondary district-by-year whole-universe fidelity gradients for Muslim share are approximately zero for meeting the nominal band, exact nominal-band recording, shortfall share, and capped receipt-to-entitlement ratio. School first-difference models also show no statistically clear Muslim, SC, ST, OBC, or General gradient.
-
-This is an important substantive correction. The earlier contemporaneous funding associations should not be presented as evidence that the CSG formula itself disadvantages socially concentrated schools. They appear to mix geography, administrative systems, school structure, accounting, and other determinants of reported funding.
-
-## 18. Correctly timed fuzzy-RD facility sensitivity
+## 15. Correctly timed facility sensitivity
 
 A secondary fuzzy-RD sensitivity treats `UDISE reported CSG receipt >= Rs 75,000` as an endogenous administrative treatment and uses the 250/251 threshold as the instrument.
 
-This is still not an audited PFMS cash-receipt treatment, so it is a sensitivity rather than a definitive expenditure-effect design.
+This is not an audited PFMS cash-receipt treatment and is therefore interpreted as a sensitivity rather than a definitive causal estimate of the return to additional CSG resources.
 
 For the 2021-22 assignment cohort:
 
@@ -371,76 +276,58 @@ For the 2022-23 assignment cohort:
 
 - 2025-26 deterioration LATE: +0.0034, CI -0.0174 to +0.0242, p=.748.
 
-Upgrade estimates are extremely imprecise:
+Upgrade estimates are extremely imprecise.
 
-- 2021-22 -> 2024-25: +0.0535, CI -0.353 to +0.460;
-- 2021-22 -> 2025-26: +0.0110, CI -0.412 to +0.434;
-- 2022-23 -> 2025-26: +0.0665, CI -0.489 to +0.622.
+The narrow conclusion is that the study does not detect a large improvement or deterioration in these coarse UDISE-observed asset-transition measures. It does not establish that CSG has no value. Many official CSG uses involve consumables, minor repairs, utilities, connectivity, teaching materials and recurring activities that are poorly represented by binary stock indicators.
 
-The appropriate conclusion is narrow: the study finds no evidence of a large improvement or deterioration in these coarse UDISE-observed asset-transition measures. It does not establish that CSG has no value. Official CSG uses include consumables, minor repairs, electricity, internet, water, teaching-learning materials, and recurring school activities that can be poorly represented by binary or stock UDISE facility variables.
+## 16. Literature position
 
-## 19. Literature position
+The targeted literature review identifies related work on school grants and household substitution, Samagra Shiksha budgets and implementation, DISE/UDISE social inequality, and regression-discontinuity applications in Indian education.
 
-The targeted literature search found several close but distinct literatures:
+The search did not identify a close predecessor that reconstructs the CSG enrolment-to-allocation-to-UDISE reporting clock, exploits the school-level CSG formula cliff to measure recorded financial transmission, and then tests that response across States, thresholds and school social composition.
 
-1. causal work on school grants and household substitution in India and Zambia;
-2. Samagra Shiksha budget and implementation briefs focused on aggregate allocations, releases, and expenditure;
-3. DISE/UDISE research on caste segregation and social inequality in Indian schools;
-4. broader regression-discontinuity work on education policy in India.
+The novelty claim is therefore deliberately bounded: **no close predecessor using this design was located in the targeted search**.
 
-The search did not locate a published or working paper that reconstructs the CSG enrolment-to-allocation-to-UDISE reporting clock, exploits the school-level CSG formula cliff to measure recorded financial transmission, and then tests that first stage across States and school social composition.
-
-The defensible novelty language is: `We did not locate a close predecessor using this design.` It should not be phrased as an unqualified claim that no prior study exists anywhere.
-
-## 20. What the study now establishes
+## 17. What the final analysis establishes
 
 ### Strongly supported
 
 1. The CSG enrolment formula leaves a large, replicating school-level financial fingerprint in UDISE when administrative timing is aligned correctly.
-2. The fingerprint peaks at +3 UDISE rounds, consistent with a two-year-old allocation enrolment vintage plus the previous-financial-year UDISE reporting convention.
-3. The financial fingerprint replicates at multiple statutory CSG thresholds.
-4. Crossing 250/251 changes reported receipt and expenditure substantially, but exact statutory amounts are only imperfectly reproduced in the administrative field.
-5. The result is essentially unchanged when the school-management universe is expanded from the original core government categories to the broader State/UT-government population.
-6. Formula transmission varies enormously and persistently across States/UTs.
-7. +3 is the modal state-level administrative lag.
-8. Stronger state formula transmission is not associated with stronger enrolment bunching.
-9. Longitudinal crossing/reversion tests do not show a distinctive manipulation pattern at 250 relative to placebo thresholds.
-10. There is no robust national evidence that the 250/251 CSG formula first stage weakens with Muslim, SC, ST, OBC, General, or residual-religion concentration.
+2. The dominant national response appears at T+3, consistent with a two-year-old allocation enrolment vintage plus the previous-financial-year UDISE reporting convention.
+3. The financial fingerprint replicates at multiple CSG thresholds.
+4. Crossing 250/251 changes reported CSG receipt and expenditure substantially, while exact formula amounts are only imperfectly reproduced in the administrative field.
+5. The result is essentially unchanged when the school-management universe is broadened.
+6. Formula realization in the UDISE CSG receipt record varies enormously and persistently across States and UTs.
+7. State response latency and response strength are separate dimensions, and State patterns replicate across thresholds.
+8. Around 90% of observed clean-threshold downward enrolment crossings with two-year follow-up reverse within two years.
+9. Enrolment heaping is present, especially around 100, but placebo and longitudinal evidence does not support a CSG-specific manipulation interpretation at 250/251.
+10. There is no robust national evidence that the 250/251 formula response weakens with Muslim, SC, ST, OBC, General or residual-religion concentration.
 11. Predetermined social composition is continuous at the cutoff after multiple-testing correction.
-12. Rare-religion nominal interactions fail placebo-cutoff specificity and should not be interpreted as CSG effects.
-13. Properly timed fuzzy estimates do not reveal large effects on the coarse facility-transition outcomes visible in UDISE, while upgrade effects remain imprecise.
+12. Correctly timed facility sensitivities do not reveal large effects on the coarse asset-transition outcomes observed in UDISE.
 
-### Not supported
+### Interpretations not identified by the study
 
-1. `The first stage is only 6-8 percentage points.` This was a timing error.
-2. `The grant mechanically increases reported finance by exactly Rs 25,000.` It does not.
-3. `Schools below Rs 75,000 were denied money.` UDISE reporting cannot establish that.
-4. `Schools manipulate enrolment to cross 250.` The evidence is too weak.
-5. `Higher Muslim share causes weaker CSG formula transmission.` The preferred estimate is near zero.
-6. `SC or ST schools receive a weaker formula response.` The pooled compositional family is jointly null.
-7. `Smaller religious groups are discriminated against by CSG.` The nominal signals fail false-cutoff tests and multiplicity control.
-8. `An extra Rs 25,000 causes no educational or infrastructure benefit.` The design is fuzzy and the observable outcomes are incomplete.
-9. `CSG does not work.` The study cannot support that statement.
-10. `Hindu-General share` can be recovered by subtracting religion and caste margins. It cannot.
+1. The formula does not mechanically increase the UDISE receipt field by exactly Rs 25,000 for every school.
+2. A school whose UDISE CSG receipt field is below the formula-implied amount cannot automatically be classified as having been denied that amount in cash.
+3. The density evidence does not establish systematic enrolment manipulation or fraud.
+4. The preferred models do not establish a Muslim, SC or ST penalty in the CSG threshold response.
+5. Nominal smaller-religion coefficients do not establish discrimination.
+6. The design does not identify the causal effect of exactly Rs 25,000 of additional cash received on school expenditure or facilities.
+7. The facility results do not support a general conclusion that CSG has no value.
+8. Religion and caste margins cannot be subtracted to recover a Hindu-General population.
 
-## 21. Final paper direction
+## 18. Research contribution
 
-The strongest paper is now an administrative public-finance paper rather than a conventional school-input impact paper.
+The study's central contribution is the reconstruction of a national formula's administrative transmission through school-level data.
 
-A defensible central framing is:
+> **A formally simple enrolment-based school-funding rule is clearly visible in India's school-level administrative accounts once the policy's allocation and reporting clocks are reconstructed. The size, timing and durability of the recorded response vary sharply across States; formula-implied amounts are only imperfectly reproduced in the UDISE CSG receipt field; temporary enrolment movements generate substantial band churn; and the 250/251 threshold does not show a distinctive longitudinal manipulation pattern. The quasi-experimental formula response also does not systematically weaken as Muslim or major social-category concentration rises.**
 
-> A formally simple enrolment-based school-funding rule is clearly visible in India's school-level administrative accounts, but only after the policy's allocation and reporting clocks are reconstructed. The size and timing of the recorded response vary sharply across States, statutory amounts are only imperfectly reproduced, and the formula does not appear to generate substantial strategic enrolment manipulation. Despite large descriptive social disparities in school funding, the quasi-experimental CSG first stage does not systematically weaken as Muslim or major caste-category concentration rises.
-
-Possible title:
+Working title:
 
 **The Formula Bites, But the Records Lag: Tracing School Funding Rules Through India's Administrative Data**
 
-A more conventional academic title:
+## 19. Remaining external-data limitation
 
-**Tracing Formula-Based School Funding Through India's Administrative Data**
+The most valuable external extension would be school-level linkage to audited or transaction-level PFMS/SNA/PRABANDH or State records identifying approval, authorization, draw, balances and expenditure for the CSG component.
 
-## 22. Remaining limitation that could materially upgrade the paper
-
-The single most valuable external-data extension would be audited or transaction-level PFMS/SNA/PRABANDH or state release records that identify actual school-wise CSG release timing and amounts. Such data could distinguish implementation from UDISE accounting/reporting and turn the current administrative fingerprint into a direct fiscal-transmission analysis.
-
-Until that linkage exists, the paper should consistently use terms such as `reported receipt`, `recorded financial transmission`, and `administrative fingerprint`, rather than treating UDISE as audited disbursement data.
+Such a linkage would separate the stages behind the formula-to-UDISE realization gap. Until that linkage is available, the study consistently distinguishes `formula-implied amount`, `UDISE-reported CSG receipt`, `recorded administrative realization` and verified cash disbursement.
