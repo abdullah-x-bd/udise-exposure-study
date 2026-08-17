@@ -2,9 +2,9 @@
 
 ## Status
 
-This note supersedes the earlier interpretation that the 250-pupil Composite School Grant threshold produced only a 6-8 percentage-point first stage in school-level grant receipt. That interpretation paired the enrolment vintage with the wrong UDISE financial-reporting round.
+This note records the corrected timing and incentive results for the Composite School Grant study. Earlier +2-round estimates are retained only as part of the research history because they paired the enrolment vintage with the wrong UDISE financial-reporting round.
 
-The central empirical discovery is now the administrative clock itself.
+The central empirical result is the administrative clock itself.
 
 ## Headline finding
 
@@ -13,13 +13,13 @@ The central empirical discovery is now the administrative clock itself.
 This three-round data lag is consistent with two independently documented features of the administrative process:
 
 1. Delhi CSG allocation orders for 2019-20, 2022-23 and 2024-25 explicitly use UDISE enrolment from two academic years earlier.
-2. UDISE's receipts and expenditure section reports grants for the previous financial year. Therefore an enrolment vintage used for a grant approximately two years later can naturally appear in the UDISE financial field labelled one academic-data round after that grant financial year.
+2. UDISE's receipts and expenditure section reports grants for the previous financial year. An enrolment vintage used for a grant approximately two years later can therefore appear in the UDISE financial field labelled one academic-data round after that grant financial year.
 
-This does not establish that every state follows precisely the same clock. It does establish that interpreting same-labelled-year or +2 UDISE financial fields as the definitive first stage was methodologically wrong.
+This does not establish that every State follows precisely the same clock. It establishes that same-labelled-year or +2 UDISE financial fields do not capture the dominant national threshold response.
 
 ## Experiment 1: full lead-lag timing surface
 
-The analysis was rerun using 250.5 as the RD coordinate because 250 remains in the lower band and 251 is the first integer in the higher band.
+The analysis uses 250.5 as the RD coordinate because 250 remains in the lower band and 251 is the first integer in the higher band.
 
 The primary outcome is the probability that the school's CSG receipt field is at least Rs 75,000.
 
@@ -43,7 +43,7 @@ For comparison, the +2 estimates are:
 
 Negative leads, same-year observations and +1 lags are close to zero in the usable later cohorts. The +4 effect falls back sharply. The lag profile is therefore peaked rather than monotonically reflecting persistent school size.
 
-Using the independent local-linear estimator, the four +3 cohorts also show positive 99%-winsorised receipt discontinuities of approximately Rs 9.5k, Rs 13.1k, Rs 14.4k and Rs 13.1k, respectively. The corresponding expenditure discontinuities are approximately Rs 9.0k, Rs 11.6k, Rs 13.3k and Rs 12.6k.
+Using the independent local-linear estimator, the four +3 cohorts also show positive 99%-winsorised receipt discontinuities of approximately Rs 9.5k, Rs 13.1k, Rs 14.4k and Rs 13.1k. The corresponding expenditure discontinuities are approximately Rs 9.0k, Rs 11.6k, Rs 13.3k and Rs 12.6k.
 
 ## Experiment 2: PM POSHAN-safe timing samples
 
@@ -64,7 +64,7 @@ These restricted estimates are less precise and are not the headline magnitudes,
 
 ## Experiment 3: correctly timed grant-fidelity decomposition
 
-A full point-mass decomposition completed for the 2021-22 enrolment vintage, which maps to grant financial year 2023-24 and the UDISE 2024-25 financial field under the corrected clock.
+A full point-mass decomposition was completed for the 2021-22 enrolment vintage, which maps to grant financial year 2023-24 and the UDISE 2024-25 financial field under the corrected clock.
 
 At bandwidth +/-30:
 
@@ -81,9 +81,9 @@ At bandwidth +/-30:
 
 Simple local rates are also revealing. Among schools with enrolment 241-250, 19.9% report receipt >=Rs 75,000. Among schools with enrolment 251-260, 55.2% do so. Exact Rs 75,000 receipt rises only from 3.3% to 9.2%.
 
-Interpretation: **the formula clearly changes the financial distribution, but the UDISE receipt field does not behave like a mechanically assigned exact grant amount.** The threshold strongly shifts schools into a higher reported-receipt region while exact statutory point-mass reporting moves much less.
+The formula therefore changes the financial distribution clearly, but the UDISE receipt field does not behave like a mechanically assigned exact grant amount. The threshold shifts schools into a higher reported-receipt region while exact formula-amount recording moves much less.
 
-This is evidence of incomplete or heterogeneous administrative fidelity in the recorded field, not evidence that 45% of schools above the threshold were necessarily denied their grant. The receipt field may reflect timing, balances, accounting conventions, partial releases, additional amounts or other implementation features that cannot be separated with UDISE alone.
+This is evidence of incomplete or heterogeneous administrative fidelity in the recorded field. It is not evidence that every school below Rs 75,000 was denied the difference. Timing, balances, accounting conventions, partial releases, additional amounts and reporting practices can all contribute.
 
 ## Experiment 4: heaping-adjusted bunching around 250/251
 
@@ -104,7 +104,7 @@ The full eight-year program estimates the following heaping-adjusted above-versu
 
 The later years have roughly 7.5% excess mass in the first five integer enrolment values above 250, while the comparable mass immediately below is only around 1-2% above its fitted counterfactual.
 
-However, placebo-threshold comparisons materially weaken a manipulation claim.
+Placebo-threshold comparisons materially weaken a manipulation interpretation.
 
 For the completed placebo-ranking years, 250/251 lies at approximately:
 
@@ -114,9 +114,9 @@ For the completed placebo-ranking years, 250/251 lies at approximately:
 - 2024-25: 78th percentile
 - 2025-26: 70th percentile
 
-Thus the 250/251 irregularity is repeatable, especially in earlier years, but it is not uniquely extreme relative to the general lumpiness of school-enrolment administrative data.
+The 250/251 irregularity is repeatable, especially in earlier years, but it is not uniquely extreme relative to the broader lumpiness of school-enrolment administrative data.
 
-**Conclusion: bunching is a secondary result. It is not strong enough to claim strategic manipulation of enrolment.**
+**Bunching is therefore a secondary result. The evidence does not establish systematic CSG-induced strategic manipulation of enrolment.**
 
 ## Experiment 5: other true thresholds
 
@@ -124,60 +124,54 @@ The same heaping-adjusted distribution screen was run at other CSG thresholds wh
 
 The 100/101 boundary displays substantially stronger irregularity than 250/251 in every completed year. For example, its heaping-adjusted asymmetry is approximately +35.1% in 2018-19, +37.6% in 2020-21, +32.5% in 2023-24, +25.2% in 2024-25 and +26.1% in 2025-26.
 
-This cannot be interpreted as a clean CSG behavioural effect. PM POSHAN cook-cum-helper and kitchen-infrastructure rules also change with enrolment around 100 and subsequent 100-pupil blocks. The 100 threshold is therefore useful evidence that administrative enrolment is highly non-smooth around policy-relevant values, but it is not a CSG-only causal experiment.
+This cannot be interpreted as a clean CSG behavioural effect. PM POSHAN cook-cum-helper and kitchen-infrastructure rules also change with enrolment around 100 and subsequent 100-pupil blocks. The 100 threshold is therefore evidence that administrative enrolment is highly non-smooth around policy-relevant values, but it is not a CSG-only causal experiment.
 
 The 30/31 cutoff does not show analogous positive excess mass in the completed screens. The 1000/1001 cutoff is too sparse for a stable national inference in many years.
 
 ## Experiment 6: outcome detectability audit
 
-The earlier outcome-null paper framing is no longer the preferred study.
-
-There are two separate reasons.
+The earlier outcome-null framing is not the principal interpretation of the study for two reasons.
 
 First, the treatment was previously paired to the wrong financial-reporting round.
 
 Second, many legitimate CSG uses are flow expenditures that cannot be expected to move coarse UDISE stock indicators. Examples in official utilisation guidance include consumables, newspapers, play materials, electricity, internet and water charges, teaching aids, repairs, maintenance, activities, small materials, transport and honoraria. A school can spend several thousand rupees productively without moving a whole-school furniture category, a binary electricity indicator or a toilet-availability indicator.
 
-Therefore the exhaustive UDISE outcome search remains useful only as a mechanism screen. It does not support the broad claim that CSG produces no benefit.
+The exhaustive UDISE outcome search is therefore retained as a mechanism screen rather than as a general test of whether CSG has value.
 
-## Experiment 7: retiming the previous facility results
+## Experiment 7: retimed facility results
 
-The previous confirmatory outcome work can be reinterpreted around the corrected clock.
+For the 2021-22 enrolment cohort, the documented-style grant financial year is 2023-24 and that financial year appears in the UDISE 2024-25 financial field. The relevant observed facility rounds are therefore 2024-25 and 2025-26 rather than 2023-24 as the primary post-treatment year.
 
-For the 2021-22 enrolment cohort, the documented-style grant financial year is 2023-24 and that financial year appears in the UDISE 2024-25 financial field. Therefore 2024-25 and 2025-26 are the relevant observed facility rounds, not 2023-24 as the primary post-treatment year.
-
-The previously estimated deterioration effects at those horizons are +0.11 pp in 2024-25 (p=.410) and +0.15 pp in 2025-26 (p=.246). There is no evidence of a maintenance benefit.
+The previously estimated deterioration effects at those horizons are +0.11 pp in 2024-25 (p=.410) and +0.15 pp in 2025-26 (p=.246). There is no evidence of a maintenance benefit in these coarse measures.
 
 For the 2022-23 enrolment cohort, the corresponding UDISE financial field is 2025-26. The 2025-26 deterioration estimate is +0.054 pp with a 95% confidence interval of approximately -0.212 to +0.319 pp. Again, there is no observed maintenance benefit.
 
 Likewise, the 2022-23 cohort's 2025-26 standardized indices are Core +0.073 SD, WASH +0.094 SD, Digital +0.014 SD, Accessibility +0.012 SD and Overall +0.057 SD, none statistically established.
 
-These correctly timed reduced-form nulls make a large benefit operating through preservation of the specific UDISE-observed assets unlikely. They do **not** establish that discretionary school spending has no value because the grant's relevant intensive-margin uses are often not measured by UDISE.
+These correctly timed reduced-form nulls make a large benefit operating through preservation of the specific UDISE-observed assets unlikely. They do not establish that discretionary school spending has no value because many relevant intensive-margin uses are not measured by UDISE.
 
-## What is superseded
+## Interpretations superseded by the corrected analysis
 
-The following earlier claims should no longer appear in the paper or brief:
+Several early formulations no longer match the final design:
 
-1. **"The CSG first stage is only 6-8 percentage points."** Superseded. Those were +2 UDISE reporting-round estimates. The correctly aligned +3 first stage is approximately 25-33 pp across four usable cohorts.
-2. **"The same grant expenditure persists for several subsequent years."** Not identified. Later annual UDISE expenditure records can reflect new CSG cycles based on later lagged enrolment vintages. Cumulative expenditure across future UDISE rounds should be treated as descriptive, not as a trace of one original grant allocation.
-3. **"An additional Rs 25,000 causes no improvement."** Unsupported. Crossing the threshold is a fuzzy assignment and the UDISE financial field does not mechanically record an exact Rs 25,000 treatment difference.
-4. **"CSG does not work."** Unsupported.
-5. **"Bunching proves schools manipulate enrolment."** Unsupported. The 250/251 anomaly is real but not uniquely extreme against placebo thresholds.
-6. **"Nothing in the school improves."** Unsupported. The broad UDISE screen finds no replicating positive mechanism in its observed variables, but many CSG uses are outside their measurement resolution.
+1. The CSG first stage is not 6-8 percentage points under the corrected clock. The aligned +3 response is approximately 25-33 pp across four usable cohorts.
+2. Later annual UDISE expenditure records cannot be read as persistence of one original grant allocation because later annual CSG cycles can enter those fields.
+3. The design does not identify the causal effect of exactly Rs 25,000 of additional cash received.
+4. The evidence does not support a conclusion that CSG does not work.
+5. The 250/251 density anomaly is real but does not establish strategic enrolment manipulation against placebo thresholds.
+6. The broad UDISE outcome screen does not justify a claim that nothing in the school improves because many legitimate grant uses are outside the resolution of the observed variables.
 
-## What survives
-
-The following statements are defensible:
+## Results retained in the final interpretation
 
 1. **The CSG formula has a strong delayed financial fingerprint in UDISE.** Around 250/251, correctly aligned receipt data show approximately 25-33 pp higher probability of reporting at least Rs 75,000.
-2. **The administrative clock matters enormously.** Documentary allocation rules and the UDISE financial reporting period jointly explain why the peak appears three academic-data rounds after the enrolment vintage.
+2. **The administrative clock matters materially.** Documentary allocation rules and the UDISE financial reporting period jointly explain why the peak appears three academic-data rounds after the enrolment vintage.
 3. **Recorded funding fidelity is substantial but far from mechanical.** In the detailed 2021-22 cohort, crossing the cutoff changes P(receipt >=Rs75k) by about 33.5 pp but P(exactly Rs75k) by only about 5.3 pp.
 4. **There is modest excess school mass just above 250.** It repeats across years, but placebo comparisons do not justify a manipulation headline.
 5. **A large maintenance effect on the UDISE-observed asset set is not supported at the correctly retimed post-grant horizons.** This remains a narrow mechanism finding, not a verdict on overall grant effectiveness.
 
 ## Experiments implemented in the repository
 
-The branch now contains reproducible workflows/code for:
+The branch contains reproducible workflows and code for:
 
 - full eight-year lead-lag timing matrix
 - corrected 250.5 RD coordinate
@@ -193,29 +187,20 @@ The branch now contains reproducible workflows/code for:
 - outcome-detectability audit
 - national threshold-scheme registry
 
-## Execution limitation encountered after the core runs
+## Historical execution limitation
 
-The core timing matrix, full eight-year timing program, grant-fidelity cohort and multiple bunching jobs completed successfully. During the remaining parallel extensions GitHub Actions began refusing new jobs before runner startup because the account reported failed recent payments or an Actions spending-limit issue.
+The core timing matrix, full eight-year timing program, grant-fidelity cohort and multiple bunching jobs completed successfully. During a later set of parallel extensions, GitHub Actions refused new jobs before runner startup because the account reported failed recent payments or an Actions spending-limit issue.
 
-As a result, the following code-complete extensions did not obtain fresh runners after their final patches:
+At that point, several code-complete extensions had not yet obtained fresh runners. Those entries are preserved as part of the execution history and are not treated as completed results unless later outputs exist elsewhere in the repository.
 
-- longitudinal threshold-crossing/reversion experiment
-- state-specific lag distribution
-- state-year implementation-intensity versus bunching correlation
-- financial first-stage replication at every CSG cutoff
-- final corrected fuzzy-RD treatment-effect run
-- exact grant-point-mass fidelity replication for the other three +3 cohorts
+The proposed >700-enrolment ICT positive control is likewise not presented as completed because the rule is discretionary and the current panel does not contain a clean post-treatment UDISE round for the newest approvals.
 
-These are not being silently reported as completed results. Their code is committed and ready to execute when Actions runner access resumes.
+## Study interpretation
 
-The proposed >700-enrolment ICT positive control is also deliberately not presented as completed: the rule is discretionary and the current panel does not contain a clean post-treatment UDISE round for the newest approvals.
+The final study is not framed as a conventional impact paper asking whether a small marginal grant changes toilets, furniture or other coarse school stocks.
 
-## Bottom line for the study
+Its empirical contribution is:
 
-The strongest paper available from the current evidence is no longer an impact paper asking whether a small marginal grant changes toilets, furniture or other coarse school stocks.
+> **Formula-based school funding leaves a strong but delayed administrative fingerprint. Around India's 250-pupil Composite School Grant cutoff, the probability of reporting a higher-band school grant jumps sharply only after the enrolment, allocation and UDISE financial-reporting clocks are aligned. The recorded financial response is substantial but does not mechanically reproduce the formula-implied amount, while modest enrolment bunching around the cutoff is not exceptional enough to establish strategic manipulation.**
 
-A more defensible empirical contribution is:
-
-> **Formula-based school funding leaves a strong but delayed administrative fingerprint. Around India's 250-pupil Composite School Grant cutoff, the probability of reporting a higher-band school grant jumps sharply only after the enrolment, allocation and UDISE financial-reporting clocks are aligned. The recorded financial response is substantial but does not mechanically reproduce the statutory amount, while modest enrolment bunching around the cutoff is not exceptional enough to establish strategic manipulation.**
-
-This is an implementation and administrative-measurement result. It is materially stronger than the previous outcome-null story, but it should not be oversold as a definitive causal study of the returns to school funding.
+This is an implementation and administrative-measurement result. It does not identify the causal return to an additional rupee of CSG actually received by a school.
