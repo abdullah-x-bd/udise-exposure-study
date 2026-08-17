@@ -1,0 +1,122 @@
+name: Muslim equity additional identification experiments
+
+on:
+  push:
+    branches:
+      - research/muslim-government-school-equity
+    paths:
+      - .github/workflows/muslim-equity-additional-identification.yml
+  workflow_dispatch:
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - name: Compile all additional experiment programs
+        run: |
+          python -m py_compile \
+            studies/muslim_government_school_equity/run_rte_timing_hardened.py \
+            studies/muslim_government_school_equity/run_rte_crossing_eventstudy.py \
+            studies/muslim_government_school_equity/run_need_onset_firstdiff.py
+      - name: Verify experiment invariants
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python - <<'PY'
+          from common import RTE_CUTOFFS
+          from run_need_onset_firstdiff import OUTCOMES
+          assert tuple(RTE_CUTOFFS) == (60.5, 90.5, 120.5)
+          assert len(OUTCOMES) == 6 and len(set(OUTCOMES)) == 6
+          print("RTE cutoffs:", RTE_CUTOFFS)
+          print("Need-onset response outcomes:", OUTCOMES)
+          PY
+      - name: Verify data access
+        run: |
+          test -n "$HF_TOKEN"
+          test -n "$HF_DATASET_REPO"
+
+  rte_timing:
+    name: Hardened delayed RTE RD
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - name: Run hardened timing RD
+        run: PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_rte_timing_hardened.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: muslim-equity-rte-timing-hardened
+          path: studies/muslim_government_school_equity/outputs/rte_timing_hardened/*
+          retention-days: 30
+          if-no-files-found: error
+
+  rte_crossing:
+    name: RTE first-crossing event study
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - name: Run RTE first-crossing event study
+        run: PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_rte_crossing_eventstudy.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: muslim-equity-rte-crossing-eventstudy
+          path: studies/muslim_government_school_equity/outputs/rte_crossing_eventstudy/*
+          retention-days: 30
+          if-no-files-found: error
+
+  need_onset:
+    name: Need-onset first-difference response
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - name: Run need-onset first-difference experiment
+        run: PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_need_onset_firstdiff.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: muslim-equity-need-onset-firstdiff
+          path: studies/muslim_government_school_equity/outputs/need_onset_firstdiff/*
+          retention-days: 30
+          if-no-files-found: error
