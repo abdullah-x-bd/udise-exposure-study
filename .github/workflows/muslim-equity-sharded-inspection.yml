@@ -1,0 +1,108 @@
+name: Muslim equity sharded inspection
+
+on:
+  push:
+    branches:
+      - research/muslim-government-school-equity
+    paths:
+      - .github/workflows/muslim-equity-sharded-inspection.yml
+  workflow_dispatch:
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - run: |
+          python -m py_compile \
+            studies/muslim_government_school_equity/run_need_inspection_memorysafe.py \
+            studies/muslim_government_school_equity/run_need_inspection_shard.py \
+            studies/muslim_government_school_equity/combine_need_inspection_shards.py
+      - name: Verify shard partition
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python - <<'PY'
+          from run_need_inspection_shard import SHARDS
+          outcomes = [x for xs in SHARDS.values() for x in xs]
+          assert len(SHARDS) == 4
+          assert len(outcomes) == 10
+          assert len(set(outcomes)) == 10
+          print(SHARDS)
+          PY
+      - run: |
+          test -n "$HF_TOKEN"
+          test -n "$HF_DATASET_REPO"
+
+  shard:
+    name: Inspection shard ${{ matrix.shard }}
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [summary, academic, block, district]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - name: Run inspection shard ${{ matrix.shard }}
+        env:
+          INSPECTION_SHARD: ${{ matrix.shard }}
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity \
+            python studies/muslim_government_school_equity/run_need_inspection_shard.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: muslim-equity-inspection-shard-${{ matrix.shard }}
+          path: studies/muslim_government_school_equity/outputs/need_inspection_shards/${{ matrix.shard }}/*
+          retention-days: 30
+          if-no-files-found: error
+
+  combine:
+    name: Combine inspection shards and apply global FDR
+    needs: shard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: muslim-equity-inspection-shard-*
+          path: inspection_shards_download
+      - name: Combine and apply BH correction across all 10 primary outcomes
+        env:
+          INSPECTION_SHARD_DOWNLOAD: inspection_shards_download
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity \
+            python studies/muslim_government_school_equity/combine_need_inspection_shards.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: muslim-equity-inspection-sharded-final
+          path: studies/muslim_government_school_equity/outputs/need_inspection_sharded_final/*
+          retention-days: 30
+          if-no-files-found: error
