@@ -48,13 +48,13 @@ def _prepare(panel: Path, con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
                  ARG_MIN(obc_share, year_index) OVER (PARTITION BY pseudocode) AS frozen_obc
           FROM base0
         ), candidates AS (
-          SELECT b.*, c.column0 AS cutoff,
-                 ROW_NUMBER() OVER (PARTITION BY pseudocode,c.column0 ORDER BY year_index) AS rn
-          FROM base b CROSS JOIN (VALUES {cut_values}) c
+          SELECT b.*, c.cutoff AS cutoff,
+                 ROW_NUMBER() OVER (PARTITION BY pseudocode,c.cutoff ORDER BY year_index) AS rn
+          FROM base b CROSS JOIN (VALUES {cut_values}) AS c(cutoff)
           WHERE b.is_state_local_government=1 AND b.lag_gov=1
             AND b.lag_year_index=b.year_index-1
-            AND b.lag_enrol <= FLOOR(c.column0) AND b.enrol_primary >= CEIL(c.column0)
-            AND ABS(b.lag_enrol-c.column0)<=20 AND ABS(b.enrol_primary-c.column0)<=20
+            AND b.lag_enrol <= FLOOR(c.cutoff) AND b.enrol_primary >= CEIL(c.cutoff)
+            AND ABS(b.lag_enrol-c.cutoff)<=20 AND ABS(b.enrol_primary-c.cutoff)<=20
             AND b.frozen_muslim IS NOT NULL
         ), events AS (
           SELECT pseudocode,cutoff,year_index AS event_year,frozen_muslim,frozen_sc,frozen_st,frozen_obc
@@ -136,7 +136,6 @@ def main() -> None:
                 ans = _fit(ev, outcome, float(cutoff))
                 if ans: rows.append(ans)
 
-        # Confirmatory family: Muslim interaction at event 0 and +1 for total teachers across three cutoffs.
         pvals = []; locs = []
         for i, r in enumerate(rows):
             if r["outcome"] == "total_teachers":
