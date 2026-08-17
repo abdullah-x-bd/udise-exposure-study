@@ -51,7 +51,6 @@ def _prepare(panel: Path, con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     for col in ("academic_inspections", "crc_visits", "block_visits", "district_state_visits"):
         x = pd.to_numeric(df[col], errors="coerce")
         x = x.where(x >= 0)
-        # Prevent a tiny number of administrative entry errors from dominating a count model.
         cap = x.quantile(0.995) if x.notna().any() else np.nan
         if np.isfinite(cap):
             x = x.clip(upper=cap)
@@ -64,7 +63,8 @@ def _prepare(panel: Path, con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     for col in ("total_visits", "senior_visits"):
         x = pd.to_numeric(df[col], errors="coerce")
         cap = x.quantile(0.995) if x.notna().any() else np.nan
-        if np.isfinite(cap): x = x.clip(upper=cap)
+        if np.isfinite(cap):
+            x = x.clip(upper=cap)
         df[f"log_{col}"] = np.log1p(x)
         df[f"any_{col}"] = np.where(x.notna(), (x > 0).astype(float), np.nan)
 
@@ -86,9 +86,10 @@ def _prepare(panel: Path, con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     for col in outcome_cols:
         df[f"next_{col}"] = df.groupby("pseudocode")[col].shift(-1)
     df["next_year_index"] = df.groupby("pseudocode")["year_index"].shift(-1)
-    consecutive = df["next_year_index"].eq(df["year_index"] + 1)
+    df["next_is_state_local_government"] = df.groupby("pseudocode")["is_state_local_government"].shift(-1)
+    valid_followup = df["next_year_index"].eq(df["year_index"] + 1) & df["next_is_state_local_government"].eq(1)
     for col in outcome_cols:
-        df.loc[~consecutive, f"next_{col}"] = np.nan
+        df.loc[~valid_followup, f"next_{col}"] = np.nan
     return df
 
 
@@ -109,16 +110,18 @@ def _fit(d: pd.DataFrame, outcome: str, cluster: str = "state", lag_exposure: bo
         exposure_name = "frozen_baseline_composition"
     enrol = np.log1p(pd.to_numeric(x["enrol_c1_12"], errors="coerce").to_numpy(float))
     rural = pd.to_numeric(x["base_rural"], errors="coerce").to_numpy(float)
+    observed = pd.to_numeric(x["need_components_observed"], errors="coerce").to_numpy(float)
     mgmt = pd.to_numeric(x["base_management"], errors="coerce")
 
-    cols = [need, need*m, need*sc, need*st, need*obc, enrol, need*rural]
-    names = ["need", "need_x_muslim", "need_x_sc", "need_x_st", "need_x_obc", "log_enrolment", "need_x_rural"]
+    cols = [need, need*m, need*sc, need*st, need*obc, enrol, need*rural, observed]
+    names = ["need", "need_x_muslim", "need_x_sc", "need_x_st", "need_x_obc", "log_enrolment", "need_x_rural", "need_components_observed"]
     finite = mgmt.dropna()
     if len(finite):
         base = finite.min()
         for code in sorted(v for v in finite.unique() if v != base):
             dum = (mgmt.to_numpy(float) == code).astype(float)
-            cols.append(need*dum); names.append(f"need_x_management_{int(code)}")
+            cols.append(need*dum)
+            names.append(f"need_x_management_{int(code)}")
     X = np.column_stack(cols)
     school = x["pseudocode"].astype(str).to_numpy(object)
     district_year = (x["district"].astype(str) + "|" + x["academic_year"].astype(str)).to_numpy(object)
@@ -143,7 +146,9 @@ def _fit(d: pd.DataFrame, outcome: str, cluster: str = "state", lag_exposure: bo
 def main() -> None:
     repo, token = os.environ["HF_DATASET_REPO"], os.environ["HF_TOKEN"]
     OUT.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect(); con.execute("PRAGMA threads=4"); con.execute("PRAGMA memory_limit='10GB'")
+    con = duckdb.connect()
+    con.execute("PRAGMA threads=4")
+    con.execute("PRAGMA memory_limit='10GB'")
     with tempfile.TemporaryDirectory(prefix="muslim_equity_inspection_") as td:
         root = Path(td)
         panel, reports = build_panel(con, repo, token, root/"work", root/"panel", teacher=False, facility=True, profile2=True)
@@ -161,15 +166,21 @@ def main() -> None:
         rows = []
         for outcome in outcomes:
             ans = _fit(sample, outcome, "state", False)
-            if ans: rows.append({"universe":"main_1_2_3_6_89_90", **ans})
+            if ans:
+                rows.append({"universe":"main_1_2_3_6_89_90", "spec":"primary", **ans})
             ans = _fit(sample, outcome, "district", False)
-            if ans: rows.append({"universe":"main_1_2_3_6_89_90", **ans})
+            if ans:
+                rows.append({"universe":"main_1_2_3_6_89_90", "spec":"district_cluster", **ans})
             ans = _fit(sample, outcome, "state", True)
-            if ans: rows.append({"universe":"main_1_2_3_6_89_90", **ans})
+            if ans:
+                rows.append({"universe":"main_1_2_3_6_89_90", "spec":"contemporaneous_exposure", **ans})
             ans = _fit(core, outcome, "state", False) if len(core) else None
-            if ans: rows.append({"universe":"core_1_2_3", **ans})
-        qs = bh_qvalues([r["need_x_muslim_p"] for r in rows])
-        for r, q in zip(rows, qs): r["need_x_muslim_q"] = q
+            if ans:
+                rows.append({"universe":"core_1_2_3", "spec":"government_universe_robustness", **ans})
+        primary_ix = [i for i, r in enumerate(rows) if r["spec"] == "primary"]
+        qs = bh_qvalues([rows[i]["need_x_muslim_p"] for i in primary_ix])
+        for i, q in zip(primary_ix, qs):
+            rows[i]["need_x_muslim_q"] = q
         write_rows(OUT/"need_inspection_models.csv", rows)
 
         sample["muslim_bin"] = muslim_bin(sample["base_muslim"])
@@ -186,10 +197,11 @@ def main() -> None:
         write_rows(OUT/"five_pp_high_need_response.csv", bin_rows)
         write_json(OUT/"source_validation.json", reports)
 
-        primary = [r for r in rows if r["cluster"] == "state" and r["exposure"] == "frozen_baseline_composition" and r["universe"] == "main_1_2_3_6_89_90"]
-        lines = ["# Need-to-inspection national experiment", "", f"Eligible government school-years with a valid need index: {len(sample):,}.", "", "The key coefficient is the interaction between documented current need and frozen baseline Muslim share after absorbing school and district-by-year fixed effects."]
+        primary = [r for r in rows if r["spec"] == "primary" and r["universe"] == "main_1_2_3_6_89_90"]
+        lines = ["# Need-to-inspection national experiment", "", f"Eligible government school-years with a valid need index: {len(sample):,}.", "", "The key coefficient is the interaction between documented current need and frozen baseline Muslim share after absorbing school and district-by-year fixed effects. Following-year outcomes are censored if the school leaves the State/local-government universe."]
         for r in primary:
-            lines.append(f"- {r['outcome']}: need x Muslim = {r['need_x_muslim']:+.4f} (95% CI {r['ci_low']:+.4f} to {r['ci_high']:+.4f}), p={r['need_x_muslim_p']:.4g}, q={r['need_x_muslim_q']:.4g}, n={r['n']:,}")
+            qv = r.get("need_x_muslim_q", float("nan"))
+            lines.append(f"- {r['outcome']}: need x Muslim = {r['need_x_muslim']:+.4f} (95% CI {r['ci_low']:+.4f} to {r['ci_high']:+.4f}), p={r['need_x_muslim_p']:.4g}, q={qv:.4g}, n={r['n']:,}")
         (OUT/"RESULTS.md").write_text("\n".join(lines), encoding="utf-8")
         print("\n".join(lines), flush=True)
     con.close()
