@@ -1,0 +1,166 @@
+name: Muslim equity memory-bounded fast inspection
+
+on:
+  push:
+    branches:
+      - research/muslim-government-school-equity
+    paths:
+      - .github/workflows/muslim-equity-fastcodes-inspection.yml
+  workflow_dispatch:
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - name: Compile fast-code programs
+        run: |
+          python -m py_compile \
+            studies/muslim_government_school_equity/run_need_inspection_fastcodes.py \
+            studies/muslim_government_school_equity/combine_need_inspection_fastcodes.py
+      - name: Validate fast integer absorber against original estimator
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python - <<'PY'
+          import numpy as np
+          from common import absorb
+          from run_need_inspection_fastcodes import absorb_fast_codes
+
+          rng = np.random.default_rng(20260817)
+          n = 25000
+          school = rng.integers(0, 3500, n, dtype=np.int32)
+          dy = rng.integers(0, 300, n, dtype=np.int32)
+          z = rng.normal(size=(n, 8))
+          old = absorb(z, np.ones(n), [school, dy], max_iter=500, tol=1e-11)
+          new, iterations, convergence = absorb_fast_codes(z.copy(), school, dy, tol=1e-10, max_iter=500, label="integrity")
+          diff = float(np.max(np.abs(old - new)))
+          print(f"max residualization difference={diff:.3e}; iterations={iterations}; convergence={convergence:.3e}")
+          assert diff < 1e-8
+          PY
+      - name: Verify data access
+        run: |
+          test -n "$HF_TOKEN"
+          test -n "$HF_DATASET_REPO"
+
+  primary:
+    name: Fast primary plus district-cluster
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - name: Run primary fast-code inspection family
+        run: PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_need_inspection_fastcodes.py primary
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: inspection-fastcodes-primary
+          path: studies/muslim_government_school_equity/outputs/need_inspection_fastcodes/primary/*
+          retention-days: 30
+          if-no-files-found: error
+
+  current:
+    name: Fast contemporaneous-exposure robustness
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - name: Run contemporaneous fast-code family
+        run: PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_need_inspection_fastcodes.py current
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: inspection-fastcodes-current
+          path: studies/muslim_government_school_equity/outputs/need_inspection_fastcodes/current/*
+          retention-days: 30
+          if-no-files-found: error
+
+  core:
+    name: Fast core-government robustness
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - name: Run core fast-code family
+        run: PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_need_inspection_fastcodes.py core
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: inspection-fastcodes-core
+          path: studies/muslim_government_school_equity/outputs/need_inspection_fastcodes/core/*
+          retention-days: 30
+          if-no-files-found: error
+
+  combine:
+    name: Combine and FDR-correct fast inspection results
+    needs: [primary, current, core]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - uses: actions/download-artifact@v4
+        with:
+          name: inspection-fastcodes-primary
+          path: /tmp/inspection-primary
+      - uses: actions/download-artifact@v4
+        with:
+          name: inspection-fastcodes-current
+          path: /tmp/inspection-current
+      - uses: actions/download-artifact@v4
+        with:
+          name: inspection-fastcodes-core
+          path: /tmp/inspection-core
+      - name: Combine model families and apply primary-family FDR
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/combine_need_inspection_fastcodes.py \
+            /tmp/inspection-primary /tmp/inspection-current /tmp/inspection-core
+      - uses: actions/upload-artifact@v4
+        with:
+          name: muslim-equity-inspection-final-fastcodes
+          path: studies/muslim_government_school_equity/outputs/need_inspection_final/*
+          retention-days: 30
+          if-no-files-found: error
