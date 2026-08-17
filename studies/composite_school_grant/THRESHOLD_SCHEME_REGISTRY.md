@@ -1,6 +1,6 @@
 # Threshold-linked school programme registry
 
-Purpose: distinguish the CSG assignment rule from overlapping national enrolment-linked programmes, and identify candidate positive-control thresholds. This is a national-programme registry, not an exhaustive registry of every state-specific scheme.
+Purpose: distinguish the CSG assignment rule from overlapping national enrolment-linked programmes and identify candidate positive-control thresholds. This is a national-programme registry, not an exhaustive registry of every State-specific scheme.
 
 ## 1. Composite School Grant, Samagra Shiksha
 
@@ -22,7 +22,7 @@ Documented timing evidence:
 - Delhi CSG 2022-23 used UDISE+ 2020-21.
 - Delhi CSG 2024-25 used UDISE+ 2022-23.
 
-Thus all three verified Delhi allocation orders use a two-academic-year-old UDISE enrolment vintage.
+All three verified Delhi allocation orders therefore use a two-academic-year-old UDISE enrolment vintage.
 
 2024-25 Delhi order source: https://www.edudel.nic.in/upload/upload_2023_24/3083_95_dt_09122024.pdf
 2019-20 Delhi order source: https://www.edudel.nic.in/upload/upload_2019_20/3719_50_dt_05082019b.PDF
@@ -39,7 +39,7 @@ Official PM POSHAN material states that kitchen-device assistance became enrolme
 - 151-250: Rs 20,000
 - above 250: Rs 25,000
 
-The official web table appears to contain a typographical label for the last band but the schedule clearly introduces a higher unit cost beyond the 151-250 band.
+The official web table appears to contain a typographical label for the last band, but the schedule clearly introduces a higher unit cost beyond the 151-250 band.
 
 Source: https://pmposhan.education.gov.in/Meal%20Provision.html
 
@@ -59,11 +59,11 @@ Source: https://pmposhan.education.gov.in/aboutus.html
 
 Important thresholds: 25/26, 100/101, then subsequent 100-pupil increments.
 
-Role in study: makes the CSG 100/101 cutoff especially unsuitable as a clean CSG causal design. It remains useful as a behavioural/bunching threshold, but any causal outcome interpretation at 100 would be confounded by other enrolment-linked programmes.
+Role in study: makes the CSG 100/101 cutoff especially unsuitable as a clean CSG causal design. It remains useful as a behavioural and density threshold, but causal outcome interpretation at 100 is confounded by other enrolment-linked programmes.
 
 ## 4. PM POSHAN kitchen-cum-store size norms
 
-Official PM POSHAN material describes a base plinth-area norm for schools up to 100 children and additional area for each further block of up to 100 children, with state flexibility.
+Official PM POSHAN material describes a base plinth-area norm for schools up to 100 children and additional area for each further block of up to 100 children, with State flexibility.
 
 Source: https://pmposhan.education.gov.in/aboutus.html
 
@@ -73,7 +73,7 @@ Role in study: another reason not to treat 100/101 and subsequent 100-pupil boun
 
 Delhi Samagra Shiksha issued an AWP&B 2025-26 sanction for **Additional ICT Lab (New), enrolment >700**, based on UDISE+ 2023-24 and PAB recommendations. Twenty-four Delhi schools were approved. The specified package includes measurable hardware such as five desktops/AIOs, computer tables, a printer, speakers, Wi-Fi setup and UPS equipment.
 
-Role in study: **future positive-control candidate**, not a deterministic analogue to CSG. PAB selection is discretionary, and the available UDISE panel ends at 2025-26, likely too early to cleanly observe a post-installation 2026-27 stock response. It should not be presented as a completed positive control until a genuinely post-treatment UDISE round is available.
+Role in study: **future positive-control candidate**, not a deterministic analogue to CSG. PAB selection is discretionary, and the available UDISE panel ends at 2025-26, likely too early to observe a clean post-installation 2026-27 stock response. It is therefore not classified as a completed positive control.
 
 ## 6. Library and sports grants
 
@@ -83,12 +83,12 @@ Role in study: not direct same-running-variable RD comparators.
 
 ## Classification for the empirical work
 
-- 250/251 total school enrolment: CSG main threshold, but PM POSHAN kitchen-device overlap must be neutralised with Classes I-VIII restrictions.
-- 100/101: heavily overlapping national rules and severe bunching, therefore not a clean causal CSG threshold.
-- 30/31: CSG threshold, but smaller-school data and other programme rules require separate diagnostics.
-- 1000/1001: CSG threshold, potentially useful but sample density is much smaller and large-school composition differs materially.
-- >700: discretionary ICT-support threshold, useful as a future observability/positive-control design rather than an immediate CSG comparison.
+- 250/251 total school enrolment: CSG main threshold, with PM POSHAN kitchen-device overlap addressed through Classes I-VIII restrictions.
+- 100/101: heavily overlapping national rules and severe heaping, therefore not a clean causal CSG threshold.
+- 30/31: CSG threshold, but smaller-school data and historical formula variation require separate diagnostics.
+- 1000/1001: CSG threshold, useful for replication but much sparser and compositionally different from the primary local sample.
+- >700: discretionary ICT-support threshold, useful as a future observability or positive-control design rather than an immediate CSG comparison.
 
 ## Residual limitation
 
-This registry covers the national programmes identified in the red-team and documentary audit. It does not prove that no state-specific scheme uses exactly the same enrolment cutoffs. Any journal paper relying on an exclusion restriction should either construct a state-by-state scheme registry for the final analysis sample or present coincident state-specific rules as a residual limitation.
+This registry covers the national programmes identified in the robustness and documentary audit. It does not establish that no State-specific scheme uses the same or nearby enrolment cutoffs. Journal-level exclusion-restriction claims therefore require either a State-by-State scheme audit for the relevant analysis sample or explicit treatment of coincident State-specific rules as a residual limitation.
