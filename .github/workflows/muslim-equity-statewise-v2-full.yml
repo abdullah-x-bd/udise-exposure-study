@@ -1,0 +1,241 @@
+name: Muslim equity statewise v2 full
+
+on:
+  workflow_dispatch:
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+
+jobs:
+  integrity:
+    name: V2 full integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3" "scipy>=1.14,<2" "pyhdfe==0.2.0"
+      - run: |
+          python -m py_compile \
+            studies/muslim_government_school_equity/statewise_panel.py \
+            studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py \
+            studies/muslim_government_school_equity/combine_statewise_causal_stack.py
+          PYTHONPATH=studies/muslim_government_school_equity python - <<'PY'
+          from run_statewise_causal_stack_v2 import MIN_CLUSTERS
+          assert MIN_CLUSTERS == 12
+          PY
+      - run: |
+          test -n "$HF_TOKEN"
+          test -n "$HF_DATASET_REPO"
+
+  caps:
+    name: National inspection caps
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - run: |
+          PYTHONPATH=studies/muslim_government_school_equity python - <<'PY'
+          import os, tempfile
+          from pathlib import Path
+          import duckdb
+          from statewise_panel import compute_national_inspection_caps, write_caps
+          con = duckdb.connect()
+          con.execute("PRAGMA threads=3")
+          con.execute("PRAGMA memory_limit='4GB'")
+          with tempfile.TemporaryDirectory(prefix='statev2_caps_') as td:
+              root = Path(td)
+              caps, reports = compute_national_inspection_caps(
+                  con, os.environ['HF_DATASET_REPO'], os.environ['HF_TOKEN'],
+                  root/'work', root/'capswork'
+              )
+              write_caps(Path('statewise_inspection_caps.json'), caps, reports)
+              print('CAPS', caps, flush=True)
+          con.close()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: statewise-v2-inspection-caps
+          path: statewise_inspection_caps.json
+          retention-days: 14
+          if-no-files-found: error
+
+  state:
+    name: ${{ matrix.state }} v2 causal stack
+    needs: caps
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        include:
+          - {state: "ANDAMAN & NICOBAR ISLANDS", slug: andaman-nicobar}
+          - {state: "ANDHRA PRADESH", slug: andhra-pradesh}
+          - {state: "ARUNACHAL PRADESH", slug: arunachal-pradesh}
+          - {state: "ASSAM", slug: assam}
+          - {state: "BIHAR", slug: bihar}
+          - {state: "CHANDIGARH", slug: chandigarh}
+          - {state: "CHHATTISGARH", slug: chhattisgarh}
+          - {state: "DADRA-NAGAR-HAVELI-DAMAN-DIU LINEAGE", slug: dnh-dd-lineage}
+          - {state: "DELHI", slug: delhi}
+          - {state: "GOA", slug: goa}
+          - {state: "GUJARAT", slug: gujarat}
+          - {state: "HARYANA", slug: haryana}
+          - {state: "HIMACHAL PRADESH", slug: himachal-pradesh}
+          - {state: "JAMMU-KASHMIR-LADAKH LINEAGE", slug: jk-ladakh-lineage}
+          - {state: "JHARKHAND", slug: jharkhand}
+          - {state: "KARNATAKA", slug: karnataka}
+          - {state: "KERALA", slug: kerala}
+          - {state: "LAKSHADWEEP", slug: lakshadweep}
+          - {state: "MADHYA PRADESH", slug: madhya-pradesh}
+          - {state: "MAHARASHTRA", slug: maharashtra}
+          - {state: "MANIPUR", slug: manipur}
+          - {state: "MEGHALAYA", slug: meghalaya}
+          - {state: "MIZORAM", slug: mizoram}
+          - {state: "NAGALAND", slug: nagaland}
+          - {state: "ODISHA", slug: odisha}
+          - {state: "PUDUCHERRY", slug: puducherry}
+          - {state: "PUNJAB", slug: punjab}
+          - {state: "RAJASTHAN", slug: rajasthan}
+          - {state: "SIKKIM", slug: sikkim}
+          - {state: "TAMIL NADU", slug: tamil-nadu}
+          - {state: "TELANGANA", slug: telangana}
+          - {state: "TRIPURA", slug: tripura}
+          - {state: "UTTAR PRADESH", slug: uttar-pradesh}
+          - {state: "UTTARAKHAND", slug: uttarakhand}
+          - {state: "WEST BENGAL", slug: west-bengal}
+    env:
+      STATE_PANEL: /tmp/state-v2-${{ matrix.slug }}.parquet
+      OUT_ROOT: studies/muslim_government_school_equity/outputs/statewise_causal_v2
+      STATE_META: studies/muslim_government_school_equity/outputs/statewise_causal_v2/${{ matrix.slug }}/prep_meta.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3" "scipy>=1.14,<2" "pyhdfe==0.2.0"
+      - uses: actions/download-artifact@v4
+        with:
+          name: statewise-v2-inspection-caps
+          path: /tmp/statev2-caps
+      - name: Build only target-State panel
+        timeout-minutes: 60
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py prepare \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" \
+            --panel-out "$STATE_PANEL" --caps-json /tmp/statev2-caps/statewise_inspection_caps.json
+      - name: Muslim concentration distribution
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py distribution --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: RTE staffing RD
+        timeout-minutes: 45
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py rte --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: Hardened delayed RTE RD
+        timeout-minutes: 35
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py timing --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: RTE first-crossing event study
+        timeout-minutes: 35
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py crossing --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: Failure-to-repair
+        timeout-minutes: 40
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py repair --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: Need-onset first differences
+        timeout-minutes: 40
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py onset --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL" --meta "$STATE_META"
+      - name: Need-to-inspection PyHDFE
+        timeout-minutes: 90
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py inspection --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL" --meta "$STATE_META"
+      - name: Record State execution summary
+        if: always()
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ['OUT_ROOT']) / '${{ matrix.slug }}'
+          names = ['distribution','rte','rte_timing','rte_crossing','repair','need_onset','need_inspection']
+          rows=[]
+          for name in names:
+              p=root/f'{name}_status.json'
+              if p.exists():
+                  r=json.loads(p.read_text()); rows.append({'experiment':name,**r})
+              else:
+                  rows.append({'experiment':name,'ok':False,'message':'missing status'})
+          (root/'execution_summary.json').write_text(json.dumps(rows,indent=2))
+          print(json.dumps(rows,indent=2),flush=True)
+          PY
+      - name: Remove school-level State panel
+        if: always()
+        run: |
+          rm -f "$STATE_PANEL"
+          test ! -e "$STATE_PANEL"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: statewise-v2-${{ matrix.slug }}
+          path: studies/muslim_government_school_equity/outputs/statewise_causal_v2/${{ matrix.slug }}/**
+          retention-days: 30
+          if-no-files-found: warn
+
+  combine:
+    name: Combine State v2 causal stack
+    needs: state
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: statewise-v2-*
+          path: /tmp/statewise-v2-artifacts
+      - run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/combine_statewise_causal_stack.py \
+            /tmp/statewise-v2-artifacts \
+            --out studies/muslim_government_school_equity/outputs/statewise_causal_v2_combined
+      - uses: actions/upload-artifact@v4
+        with:
+          name: muslim-equity-statewise-v2-combined
+          path: studies/muslim_government_school_equity/outputs/statewise_causal_v2_combined/**
+          retention-days: 30
+          if-no-files-found: error
