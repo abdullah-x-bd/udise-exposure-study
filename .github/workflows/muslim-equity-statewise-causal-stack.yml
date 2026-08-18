@@ -1,0 +1,247 @@
+name: Muslim equity full statewise causal stack
+
+on:
+  push:
+    branches:
+      - research/muslim-government-school-equity
+    paths:
+      - .github/workflows/muslim-equity-statewise-causal-stack.yml
+  workflow_dispatch:
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+
+jobs:
+  integrity:
+    name: Statewise stack integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - name: Compile statewise programs
+        run: |
+          python -m py_compile \
+            studies/muslim_government_school_equity/run_statewise_causal_stack.py \
+            studies/muslim_government_school_equity/combine_statewise_causal_stack.py
+      - name: Verify causal stack invariants
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python - <<'PY'
+          from run_statewise_causal_stack import MIN_CLUSTERS, RTE_OUTCOMES, INSPECTION_OUTCOMES
+          from common import RTE_CUTOFFS
+          assert MIN_CLUSTERS == 8
+          assert tuple(RTE_CUTOFFS) == (60.5, 90.5, 120.5)
+          assert len(RTE_OUTCOMES) == 7
+          assert len(INSPECTION_OUTCOMES) == 10
+          print('district-cluster minimum:', MIN_CLUSTERS)
+          print('RTE cutoffs:', RTE_CUTOFFS)
+          print('RTE outcomes:', RTE_OUTCOMES)
+          print('inspection outcomes:', INSPECTION_OUTCOMES)
+          PY
+      - name: Verify data access
+        run: |
+          test -n "$HF_TOKEN"
+          test -n "$HF_DATASET_REPO"
+
+  state:
+    name: ${{ matrix.state }} causal stack
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - state: "ANDAMAN & NICOBAR ISLANDS"
+            slug: andaman-nicobar
+          - state: "ANDHRA PRADESH"
+            slug: andhra-pradesh
+          - state: "ARUNACHAL PRADESH"
+            slug: arunachal-pradesh
+          - state: "ASSAM"
+            slug: assam
+          - state: "BIHAR"
+            slug: bihar
+          - state: "CHANDIGARH"
+            slug: chandigarh
+          - state: "CHHATTISGARH"
+            slug: chhattisgarh
+          - state: "DADRA-NAGAR-HAVELI-DAMAN-DIU LINEAGE"
+            slug: dnh-dd-lineage
+          - state: "DELHI"
+            slug: delhi
+          - state: "GOA"
+            slug: goa
+          - state: "GUJARAT"
+            slug: gujarat
+          - state: "HARYANA"
+            slug: haryana
+          - state: "HIMACHAL PRADESH"
+            slug: himachal-pradesh
+          - state: "JAMMU-KASHMIR-LADAKH LINEAGE"
+            slug: jk-ladakh-lineage
+          - state: "JHARKHAND"
+            slug: jharkhand
+          - state: "KARNATAKA"
+            slug: karnataka
+          - state: "KERALA"
+            slug: kerala
+          - state: "LAKSHADWEEP"
+            slug: lakshadweep
+          - state: "MADHYA PRADESH"
+            slug: madhya-pradesh
+          - state: "MAHARASHTRA"
+            slug: maharashtra
+          - state: "MANIPUR"
+            slug: manipur
+          - state: "MEGHALAYA"
+            slug: meghalaya
+          - state: "MIZORAM"
+            slug: mizoram
+          - state: "NAGALAND"
+            slug: nagaland
+          - state: "ODISHA"
+            slug: odisha
+          - state: "PUDUCHERRY"
+            slug: puducherry
+          - state: "PUNJAB"
+            slug: punjab
+          - state: "RAJASTHAN"
+            slug: rajasthan
+          - state: "SIKKIM"
+            slug: sikkim
+          - state: "TAMIL NADU"
+            slug: tamil-nadu
+          - state: "TELANGANA"
+            slug: telangana
+          - state: "TRIPURA"
+            slug: tripura
+          - state: "UTTAR PRADESH"
+            slug: uttar-pradesh
+          - state: "UTTARAKHAND"
+            slug: uttarakhand
+          - state: "WEST BENGAL"
+            slug: west-bengal
+    env:
+      STATE_PANEL: /tmp/state-${{ matrix.slug }}.parquet
+      STATE_META: studies/muslim_government_school_equity/outputs/statewise_causal/${{ matrix.slug }}/prep_meta.json
+      OUT_ROOT: studies/muslim_government_school_equity/outputs/statewise_causal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - name: Build and isolate State panel
+        timeout-minutes: 45
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack.py prepare \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" \
+            --out-root "$OUT_ROOT" --panel-out "$STATE_PANEL" \
+            --work-root "/tmp/state-work-${{ matrix.slug }}"
+      - name: State Muslim concentration distribution
+        timeout-minutes: 10
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack.py distribution \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: State RTE staffing RD stack
+        timeout-minutes: 40
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack.py rte \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: State hardened delayed RTE RD
+        timeout-minutes: 30
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack.py timing \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: State RTE first-crossing event study
+        timeout-minutes: 30
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack.py crossing \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: State failure-to-repair stack
+        timeout-minutes: 35
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack.py repair \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: State need-onset first differences
+        timeout-minutes: 35
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack.py onset \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" \
+            --panel "$STATE_PANEL" --meta "$STATE_META"
+      - name: State need-to-inspection FE stack
+        timeout-minutes: 70
+        continue-on-error: true
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack.py inspection \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" \
+            --panel "$STATE_PANEL" --meta "$STATE_META"
+      - name: Remove school-level temporary State panel
+        if: always()
+        run: |
+          rm -f "$STATE_PANEL"
+          rm -rf "/tmp/state-work-${{ matrix.slug }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: state-causal-${{ matrix.slug }}
+          path: studies/muslim_government_school_equity/outputs/statewise_causal/${{ matrix.slug }}/**
+          retention-days: 30
+          if-no-files-found: warn
+
+  combine:
+    name: Combine State causal stack and global FDR
+    needs: state
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: state-causal-*
+          path: /tmp/statewise-causal-artifacts
+      - name: Combine supported State estimates and apply experiment-level FDR
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/combine_statewise_causal_stack.py \
+            /tmp/statewise-causal-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: muslim-equity-statewise-causal-combined
+          path: studies/muslim_government_school_equity/outputs/statewise_causal_combined/**
+          retention-days: 30
+          if-no-files-found: error
