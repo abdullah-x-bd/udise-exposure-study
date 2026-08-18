@@ -1,0 +1,224 @@
+name: Muslim equity statewise v2 audit
+
+on:
+  push:
+    branches:
+      - research/muslim-government-school-equity
+    paths:
+      - .github/workflows/muslim-equity-statewise-v2-audit.yml
+  workflow_dispatch:
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+  PYTHONUNBUFFERED: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+
+jobs:
+  integrity:
+    name: V2 static and numerical integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3" "scipy>=1.14,<2" "pyhdfe==0.2.0"
+      - name: Compile all State v2 code
+        run: |
+          python -m py_compile \
+            studies/muslim_government_school_equity/statewise_panel.py \
+            studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py \
+            studies/muslim_government_school_equity/run_statewise_causal_stack.py \
+            studies/muslim_government_school_equity/combine_statewise_causal_stack.py
+      - name: Verify inference and builder invariants
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python - <<'PY'
+          import numpy as np
+          from run_statewise_causal_stack_v2 import MIN_CLUSTERS, _cluster_t_p, _cluster_t_ci
+          from cluster_harmonization import canonical_state
+          assert MIN_CLUSTERS == 12
+          assert canonical_state('Kerla') == 'KERALA'
+          assert canonical_state('Tamilnadu') == 'TAMIL NADU'
+          assert canonical_state('Ladakh') == 'JAMMU-KASHMIR-LADAKH LINEAGE'
+          p12 = _cluster_t_p(-2.0, 1.0, 12)
+          p50 = _cluster_t_p(-2.0, 1.0, 50)
+          assert 0 < p50 < p12 < 1
+          lo, hi = _cluster_t_ci(-2.0, 1.0, 12)
+          assert lo < -2 < hi
+          print('cluster-t p, G=12:', p12)
+          print('cluster-t p, G=50:', p50)
+          PY
+      - name: Verify data credentials
+        run: |
+          test -n "$HF_TOKEN"
+          test -n "$HF_DATASET_REPO"
+
+  caps:
+    name: Compute national inspection caps once
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3"
+      - name: Compute aggregate national caps
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python - <<'PY'
+          import os, tempfile
+          from pathlib import Path
+          import duckdb
+          from statewise_panel import compute_national_inspection_caps, write_caps
+          con = duckdb.connect()
+          con.execute("PRAGMA threads=3")
+          con.execute("PRAGMA memory_limit='4GB'")
+          with tempfile.TemporaryDirectory(prefix='statev2_caps_') as td:
+              root = Path(td)
+              caps, reports = compute_national_inspection_caps(
+                  con, os.environ['HF_DATASET_REPO'], os.environ['HF_TOKEN'],
+                  root/'work', root/'capswork'
+              )
+              write_caps(Path('statewise_inspection_caps.json'), caps, reports)
+              print('CAPS', caps, flush=True)
+          con.close()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: statewise-inspection-caps
+          path: statewise_inspection_caps.json
+          retention-days: 14
+          if-no-files-found: error
+
+  audit_state:
+    name: Audit ${{ matrix.state }}
+    needs: caps
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - state: "GOA"
+            slug: goa
+          - state: "ASSAM"
+            slug: assam
+          - state: "UTTAR PRADESH"
+            slug: uttar-pradesh
+    env:
+      STATE_PANEL: /tmp/state-v2-${{ matrix.slug }}.parquet
+      OUT_ROOT: studies/muslim_government_school_equity/outputs/statewise_causal_v2_audit
+      STATE_META: studies/muslim_government_school_equity/outputs/statewise_causal_v2_audit/${{ matrix.slug }}/prep_meta.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install "pandas>=2.2,<3" "scipy>=1.14,<2" "pyhdfe==0.2.0"
+      - uses: actions/download-artifact@v4
+        with:
+          name: statewise-inspection-caps
+          path: /tmp/statev2-caps
+      - name: Build target-State panel only
+        timeout-minutes: 60
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py prepare \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" \
+            --panel-out "$STATE_PANEL" --caps-json /tmp/statev2-caps/statewise_inspection_caps.json
+      - name: Muslim concentration distribution
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py distribution \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: RTE staffing RD stack
+        timeout-minutes: 45
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py rte \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: Hardened delayed RTE RD
+        timeout-minutes: 35
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py timing \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: RTE first-crossing event study
+        timeout-minutes: 35
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py crossing \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: Failure-to-repair stack
+        timeout-minutes: 40
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py repair \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" --panel "$STATE_PANEL"
+      - name: Need-onset first differences
+        timeout-minutes: 40
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py onset \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" \
+            --panel "$STATE_PANEL" --meta "$STATE_META"
+      - name: Need-to-inspection PyHDFE State stack
+        timeout-minutes: 90
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python \
+            studies/muslim_government_school_equity/run_statewise_causal_stack_v2.py inspection \
+            --state "${{ matrix.state }}" --slug "${{ matrix.slug }}" --out-root "$OUT_ROOT" \
+            --panel "$STATE_PANEL" --meta "$STATE_META"
+      - name: Audit execution statuses and privacy
+        if: always()
+        run: |
+          PYTHONPATH=studies/muslim_government_school_equity python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ['OUT_ROOT']) / '${{ matrix.slug }}'
+          required = ['distribution','rte','rte_timing','rte_crossing','repair','need_onset','need_inspection']
+          bad = []
+          for name in required:
+              p = root / f'{name}_status.json'
+              if not p.exists():
+                  bad.append(f'{name}:missing-status')
+                  continue
+              rec = json.loads(p.read_text())
+              if not rec.get('ok'):
+                  bad.append(f"{name}:{rec.get('message')}")
+          print('AUDIT STATUS', bad if bad else 'ALL OK', flush=True)
+          if bad:
+              raise SystemExit('; '.join(bad))
+          PY
+      - name: Delete all school-level temporary data
+        if: always()
+        run: |
+          rm -f "$STATE_PANEL"
+          test ! -e "$STATE_PANEL"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: statewise-v2-audit-${{ matrix.slug }}
+          path: studies/muslim_government_school_equity/outputs/statewise_causal_v2_audit/${{ matrix.slug }}/**
+          retention-days: 14
+          if-no-files-found: warn
+
+  audit_complete:
+    name: Statewise v2 audit complete
+    needs: audit_state
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Goa, Assam, and Uttar Pradesh passed the complete State v2 stack."
