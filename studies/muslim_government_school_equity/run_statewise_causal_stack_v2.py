@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import gc
 import json
-import math
 import os
 import sys
 import tempfile
@@ -75,14 +74,9 @@ def _retune_primary(out: Path, experiment: str) -> None:
     d["cluster_t_ci_low"] = [x[0] for x in ci]
     d["cluster_t_ci_high"] = [x[1] for x in ci]
 
-    # Retune pretrend tests when present.
     if {"pretrend_estimate", "pretrend_p"}.issubset(d.columns):
         d["pretrend_p_normal_legacy"] = pd.to_numeric(d["pretrend_p"], errors="coerce")
-        pre_est = pd.to_numeric(d["pretrend_estimate"], errors="coerce")
-        # Event-study/first-difference pretrend uses the same fitted covariance and cluster count.
-        pre_se = []
-        # The compact primary files did not store pretrend SE. Preserve the legacy pretrend p and mark it.
-        d["pretrend_inference_note"] = "legacy normal p retained because compact file lacks pretrend SE"
+        d["pretrend_inference_note"] = "legacy normal p retained because compact primary file lacks pretrend SE"
 
     d["state_family_q"] = np.nan
     support = d["support_ok"].astype(str).str.lower().isin(["true", "1"])
@@ -112,11 +106,12 @@ def prepare(args: argparse.Namespace) -> None:
         Path(args.panel_out).parent.mkdir(parents=True, exist_ok=True)
         con.execute(f"COPY (SELECT * FROM read_parquet('{qin}')) TO '{qout}' (FORMAT PARQUET, COMPRESSION ZSTD)")
 
+    panel_sql = str(Path(args.panel_out)).replace("'", "''")
     stats = con.execute(
         f"SELECT COUNT(*) rows, COUNT(DISTINCT pseudocode) schools, COUNT(DISTINCT district) districts, "
         f"COUNT(DISTINCT academic_year) years, COUNT(DISTINCT state) states, "
         f"COUNT(*)-COUNT(DISTINCT pseudocode||'|'||academic_year) duplicate_school_years "
-        f"FROM read_parquet('{str(Path(args.panel_out)).replace("'", "''")}')"
+        f"FROM read_parquet('{panel_sql}')"
     ).fetchone()
     if int(stats[4]) != 1:
         raise RuntimeError(f"State leakage detected: distinct state labels={stats[4]}")
@@ -132,7 +127,7 @@ def prepare(args: argparse.Namespace) -> None:
         "classrooms_major_repair", "academic_inspections", "crc_visits", "block_visits", "district_state_visits",
     }
     cols = {r[0] for r in con.execute(
-        f"DESCRIBE SELECT * FROM read_parquet('{str(Path(args.panel_out)).replace("'", "''")}')"
+        f"DESCRIBE SELECT * FROM read_parquet('{panel_sql}')"
     ).fetchall()}
     missing = sorted(required - cols)
     if missing:
